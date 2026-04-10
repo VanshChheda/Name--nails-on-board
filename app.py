@@ -7,10 +7,15 @@ from datetime import datetime, timezone, timedelta
 import os, urllib.parse, smtplib, threading, secrets, json, re
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'nailsonboard-kavya-2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nailsonboard.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nailsonboard-kavya-2024')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///nailsonboard.db')
+# Fix Render PostgreSQL URL format
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads', 'nails')
+# On Render, use /tmp for uploads (persistent disk not available on free tier)
+UPLOAD_BASE = os.environ.get('UPLOAD_FOLDER', os.path.join('static', 'uploads', 'nails'))
+app.config['UPLOAD_FOLDER'] = UPLOAD_BASE
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -20,15 +25,15 @@ IST = timezone(timedelta(hours=5, minutes=30))
 #  1. myaccount.google.com → Security → 2-Step Verification ON
 #  2. Security → App Passwords → Create one → copy 16-char code
 # ══════════════════════════════════════════════════════════════
-EMAIL_SENDER   = 'vanshchheda10@gmail.com'
-EMAIL_PASSWORD = 'njmz qhug ewkc yugn'
+EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'your_gmail@gmail.com')
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'xxxx xxxx xxxx xxxx')
 EMAIL_NAME     = 'Nails on Board'
-ADMIN_EMAIL    = 'vanshchheda10@gmail.com'
+ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'your_gmail@gmail.com')
 
 # ══════════════════════════════════════════════════════════════
 #  UPI PAYMENT
 # ══════════════════════════════════════════════════════════════
-UPI_ID          = 'vanshchheda10@oksbi'
+UPI_ID          = os.environ.get('UPI_ID', 'yourname@upi')
 UPI_NAME        = 'Nails on Board'
 UPI_DESCRIPTION = 'Payment to Nails on Board'
 
@@ -550,9 +555,7 @@ def admin_logout():
     session.clear(); return redirect(url_for('admin_login'))
 
 @app.route('/admin')
-def admin_root():
-    return redirect(url_for('admin_login'))
-@app.route('/admin/dashboard')
+@app.route('/admin/')
 @admin_required
 def admin_dashboard():
     email_ok = 'your_gmail' not in EMAIL_SENDER
@@ -788,4 +791,5 @@ if __name__ == '__main__':
     print("   Admin:      http://127.0.0.1:5000/admin/login")
     print("   Login:      KavyaChheda0510 / KRC@2004")
     print(f"   Email:      {'✅ Configured' if email_ok else '⚠️  Add Gmail in app.py'}\n")
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
