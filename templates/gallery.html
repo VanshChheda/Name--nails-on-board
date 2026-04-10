@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Gallery — Nails on Board{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <h1>Our Gallery</h1>
+  <p>Browse our stunning nail art creations</p>
+</section>
+<section class="gallery-section">
+  {% if products %}
+  <div class="gallery-grid">
+    {% for p in products %}
+    <div class="gallery-item">
+      <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy" />
+      <div class="gallery-caption">
+        <span>{{ p.name }}</span>
+        <a href="{{ url_for('product_detail', pid=p.id) }}">View →</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🎨</div>
+    <h3>Gallery coming soon</h3>
+    <p>Our artist is creating magic. Check back soon!</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

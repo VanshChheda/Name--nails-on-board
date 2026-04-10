@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Pay via UPI — Nails on Board{% endblock %}
+{% block content %}
+<section class="payment-section">
+  <div class="payment-card">
+
+    <!-- Header -->
+    <div class="payment-header">
+      <div class="payment-icon">💳</div>
+      <h1>Complete Your Payment</h1>
+      <p>Order #{{ order.id }} — {{ order.product.name }}</p>
+    </div>
+
+    <!-- Amount -->
+    <div class="payment-amount-box">
+      <span class="payment-label">Total Amount</span>
+      <span class="payment-amount">₹{{ "%.2f"|format(order.total_price) }}</span>
+      <span class="payment-sub">{{ order.quantity }} × {{ order.product.name }}</span>
+    </div>
+
+    <!-- UPI Options -->
+    <div class="upi-section">
+      <h2>Pay via UPI</h2>
+      <p class="upi-sub">Choose any method below — all go to the same account</p>
+
+      <!-- UPI ID copy box -->
+      <div class="upi-id-box">
+        <span class="upi-id-label">UPI ID</span>
+        <div class="upi-id-row">
+          <strong id="upiIdText">{{ upi_id }}</strong>
+          <button class="copy-btn" onclick="copyUPI()">📋 Copy</button>
+        </div>
+        <small>Registered to: <em>{{ upi_name }}</em></small>
+      </div>
+
+      <!-- QR Code -->
+      <div class="qr-container">
+        <div class="qr-wrap">
+          <img src="{{ qr_url }}" alt="UPI QR Code" id="qrImg" />
+          <div class="qr-label">Scan with any UPI app</div>
+        </div>
+        <div class="qr-apps">
+          <span class="app-label">Works with:</span>
+          <div class="app-icons">
+            <div class="app-icon">📱<span>PhonePe</span></div>
+            <div class="app-icon">🟢<span>GPay</span></div>
+            <div class="app-icon">🔵<span>Paytm</span></div>
+            <div class="app-icon">🟠<span>BHIM</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deep link button (mobile) -->
+      <a href="{{ upi_url }}" class="btn-upi-pay" id="upiPayBtn">
+        <span>💸</span> Open UPI App to Pay ₹{{ "%.0f"|format(order.total_price) }}
+      </a>
+      <p class="mobile-hint">👆 Tap above on mobile to open your UPI app directly</p>
+    </div>
+
+    <!-- Divider -->
+    <div class="payment-divider"><span>After Payment</span></div>
+
+    <!-- UTR Confirmation form -->
+    <div class="utr-section">
+      <h2>Enter Transaction ID</h2>
+      <p>After paying, enter your <strong>UPI Transaction ID (UTR)</strong> below to confirm your order.</p>
+      <p class="utr-hint">📍 Find it in: Your UPI app → Transaction History → Last transaction → UTR/Reference No.</p>
+
+      <form method="POST" action="{{ url_for('confirm_payment', order_id=order.id) }}" class="utr-form">
+        <div class="form-group">
+          <label>UPI Transaction ID / UTR Number *</label>
+          <input type="text" name="utr_ref" required
+                 placeholder="e.g. 512345678901 or T2504091234567"
+                 pattern="[A-Za-z0-9]+" minlength="8" maxlength="30" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg full-width">
+          ✦ Confirm Payment &amp; Place Order
+        </button>
+      </form>
+    </div>
+
+    <!-- Order summary -->
+    <div class="payment-summary">
+      <div class="detail-row"><span>Customer</span><strong>{{ order.customer_name }}</strong></div>
+      <div class="detail-row"><span>Phone</span><strong>{{ order.customer_phone }}</strong></div>
+      <div class="detail-row"><span>Product</span><strong>{{ order.product.name }}</strong></div>
+      <div class="detail-row"><span>Quantity</span><strong>{{ order.quantity }}</strong></div>
+      <div class="detail-row total-row"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_price) }}</strong></div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+function copyUPI() {
+  const txt = document.getElementById('upiIdText').textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  });
+}
+// Hide deep-link button on desktop (it only works on mobile)
+if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  document.getElementById('upiPayBtn').style.display = 'none';
+  document.querySelector('.mobile-hint').textContent = '📱 On mobile, you can open your UPI app directly using the button above.';
+}
+</script>
+{% endblock %}

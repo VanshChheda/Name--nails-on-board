@@ -1,0 +1,64 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Appointments — Admin{% endblock %}
+{% block page_title %}Appointments{% endblock %}
+{% block content %}
+<div class="panel-header mb-4"><h2>All Appointments ({{ appointments|length }})</h2></div>
+{% if appointments %}
+<div class="orders-list">
+  {% for a in appointments %}
+  <div class="order-block">
+    <div class="order-block-header">
+      <div class="ob-info">
+        <strong>#{{ a.id }} — {{ a.customer_name }}</strong>
+        <span>{{ a.service }}</span>
+        <span>📅 {{ a.preferred_date }} at {{ a.preferred_time }}</span>
+      </div>
+      <div class="ob-badges">
+        <span class="status-badge status-{{ a.status }}">{{ a.status|title }}</span>
+      </div>
+      <small class="ob-date">{{ a.created_at.strftime('%d %b %Y, %I:%M %p') }} · 📞 {{ a.customer_phone }} · 📧 {{ a.customer_email }}</small>
+      {% if a.notes %}<small class="ob-date">📝 {{ a.notes }}</small>{% endif %}
+    </div>
+    <div class="order-block-body">
+      <form method="POST" action="{{ url_for('admin_update_appointment', aid=a.id) }}" class="ob-form">
+        <div class="ob-form-row">
+          <div class="form-group"><label>Status</label>
+            <select name="status" class="mini-select">
+              {% for s in ['pending','confirmed','completed','cancelled'] %}
+              <option value="{{ s }}" {% if a.status==s %}selected{% endif %}>{{ s|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn-edit">Update + Email</button>
+        </div>
+      </form>
+      <form method="POST" action="{{ url_for('admin_email_appointment', aid=a.id) }}" class="ob-sms-form">
+        <div class="ob-form-row">
+          <input type="text" name="custom_msg" placeholder="Custom email to customer (blank = reminder)" class="sms-input" />
+          <button type="submit" class="btn-sms">📧 Send Email</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty-state-admin"><p>No appointments yet.</p></div>{% endif %}
+<style>
+.orders-list{display:flex;flex-direction:column;gap:14px}
+.order-block{background:var(--white);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.order-block-header{padding:16px 20px 10px;border-bottom:1px solid var(--blush)}
+.ob-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.ob-info strong{font-size:.97rem;color:var(--dark)}
+.ob-info span{font-size:.83rem;color:var(--muted)}
+.ob-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.ob-date{font-size:.76rem;color:var(--muted);display:block;margin-top:3px}
+.order-block-body{padding:12px 20px;background:rgba(245,221,226,.1);display:flex;flex-direction:column;gap:10px}
+.ob-form-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.ob-form-row .form-group{display:flex;flex-direction:column;gap:4px}
+.ob-form-row label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sms-input{flex:1;min-width:220px;padding:8px 12px;border:1.5px solid var(--blush);border-radius:8px;font-family:'Jost',sans-serif;font-size:.84rem;color:var(--dark);background:var(--cream);outline:none}
+.sms-input:focus{border-color:var(--deep-rose)}
+.btn-sms{padding:8px 16px;background:var(--blush);color:var(--deep-rose);border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+.btn-sms:hover{background:var(--deep-rose);color:var(--white)}
+</style>
+{% endblock %}

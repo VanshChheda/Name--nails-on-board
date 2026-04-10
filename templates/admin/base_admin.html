@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>{% block title %}Admin — Nails on Board{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}"/>
+</head>
+<body class="admin-body">
+<aside class="admin-sidebar">
+  <div class="admin-brand"><span>✦</span> Nails on Board<small>Admin Panel</small></div>
+  <nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}" class="{% if request.endpoint=='admin_dashboard' %}active{% endif %}"><span>📊</span> Dashboard</a>
+    <a href="{{ url_for('admin_products') }}" class="{% if 'product' in request.endpoint %}active{% endif %}"><span>💅</span> Products</a>
+    <a href="{{ url_for('admin_orders') }}" class="{% if 'order' in request.endpoint %}active{% endif %}"><span>📦</span> Orders</a>
+    <a href="{{ url_for('admin_appointments') }}" class="{% if 'appointment' in request.endpoint %}active{% endif %}"><span>📅</span> Appointments</a>
+    <a href="{{ url_for('admin_appt_settings') }}" class="{% if request.endpoint=='admin_appt_settings' %}active{% endif %}"><span>⚙️</span> Appt Settings</a>
+    <a href="{{ url_for('admin_customers') }}" class="{% if request.endpoint=='admin_customers' %}active{% endif %}"><span>👥</span> Customers</a>
+    <a href="{{ url_for('admin_notifications') }}" class="{% if request.endpoint=='admin_notifications' %}active{% endif %}" id="notifLink"><span>🔔</span> Notifications <span class="notif-count" id="notifCount" style="display:none"></span></a>
+    <hr/>
+    <a href="{{ url_for('index') }}" target="_blank"><span>🌐</span> View Site</a>
+    <a href="{{ url_for('admin_logout') }}"><span>🚪</span> Logout</a>
+  </nav>
+  <div style="padding:16px 24px;margin-top:auto">
+    <button onclick="toggleAdminDark()" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.6);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.82rem;width:100%">🌙 Dark Mode</button>
+  </div>
+</aside>
+<div class="admin-main">
+  <header class="admin-topbar">
+    <h1 class="admin-page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    <div class="admin-user">👤 {{ session.admin_username }}</div>
+  </header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}<div class="flash-messages">{% for cat,msg in messages %}<div class="flash flash-{{ cat }}">{{ msg }}</div>{% endfor %}</div>{% endif %}
+  {% endwith %}
+  <div class="admin-content">{% block content %}{% endblock %}</div>
+</div>
+<script>
+function toggleAdminDark(){const h=document.documentElement;const t=h.getAttribute('data-theme')==='dark'?'light':'dark';h.setAttribute('data-theme',t);localStorage.setItem('adminTheme',t);}
+(function(){const t=localStorage.getItem('adminTheme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+async function updateNotifCount(){try{const r=await fetch('/admin/notifications/count');const d=await r.json();const b=document.getElementById('notifCount');if(d.count>0){b.textContent=d.count;b.style.display='inline';}else b.style.display='none';}catch(e){}}
+updateNotifCount();setInterval(updateNotifCount,30000);
+</script>
+</body>
+</html>

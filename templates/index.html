@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Nails on Board — Premium Nail Art{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-content">
+    <p class="hero-eyebrow">✦ Premium Nail Art Studio</p>
+    <h1 class="hero-title">Beauty at<br><em>Your Fingertips</em></h1>
+    <p class="hero-sub">Handcrafted nail art, professional services, and premium nail products.</p>
+    <div class="hero-cta-group">
+      <a href="{{ url_for('shop') }}" class="btn btn-primary">Shop Now</a>
+      <a href="{{ url_for('appointment') }}" class="btn btn-outline">Book Appointment</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="hero-ring hero-ring-1"></div>
+    <div class="hero-ring hero-ring-2"></div>
+    <div class="hero-photo-frame">
+      {% if hero_img %}
+      <a href="{{ url_for('static', filename='uploads/nails/' + hero_img) }}" target="_blank" class="hero-photo-inner">
+        <img src="{{ url_for('static', filename='uploads/nails/' + hero_img) }}" alt="Nails on Board" class="hero-nail-photo"/>
+        <div class="hero-photo-tag">✦ Signature Collection</div>
+      </a>
+      {% else %}
+      <div class="hero-photo-inner">
+        <img src="https://images.unsplash.com/photo-1604654894610-df63bc536371?w=600&q=80" alt="Nail Art" class="hero-nail-photo" onerror="this.parentElement.innerHTML='<div class=hero-photo-fallback>💅<span>Nails on Board</span></div>'"/>
+        <div class="hero-photo-tag">✦ Signature Collection</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="feature-card"><div class="feature-icon">💅</div><h3>Expert Artists</h3><p>Certified nail technicians with years of intricate nail art experience.</p></div>
+  <div class="feature-card"><div class="feature-icon">📦</div><h3>Fast Delivery</h3><p>Premium nail products shipped to your door, fast and secure.</p></div>
+  <div class="feature-card"><div class="feature-icon">🎨</div><h3>Custom Designs</h3><p>Fully personalised nail art created just for you, every time.</p></div>
+</section>
+
+{% if products %}
+<section class="products-section">
+  <div class="section-header"><h2>Featured Products</h2><a href="{{ url_for('shop') }}" class="see-all">See All →</a></div>
+  <div class="products-grid">
+    {% for p in products[:8] %}
+    <div class="product-card">
+      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
+        {% if p.image_filename %}<img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy"/>
+        {% else %}<div class="product-img-placeholder">💅</div>{% endif %}
+        <div class="product-overlay">View</div>
+      </a>
+      <div class="product-info">
+        <span class="product-cat">{{ p.category }}</span>
+        <h3>{{ p.name }}</h3>
+        <div class="product-footer"><span class="price">₹{{ "%.2f"|format(p.price) }}</span><a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Order</a></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="cta-banner">
+  <div class="cta-inner">
+    <h2>Ready for your perfect nails?</h2>
+    <p>Book an appointment with our experts today.</p>
+    <a href="{{ url_for('appointment') }}" class="btn btn-primary btn-lg">Book Appointment</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Order {{ product.name }} — Nails on Board{% endblock %}
+{% block content %}
+<section class="form-section">
+  <div class="form-card">
+    <div class="form-header"><h1>Place Your Order</h1><p>Fill in your details below</p></div>
+    <div class="order-product-summary">
+      {% if product.image_filename %}<img src="{{ url_for('static', filename='uploads/nails/' + product.image_filename) }}" alt="{{ product.name }}"/>
+      {% else %}<div class="order-product-icon">💅</div>{% endif %}
+      <div><strong>{{ product.name }}</strong><span>₹{{ "%.2f"|format(product.price) }} each</span></div>
+    </div>
+    <form method="POST" class="styled-form">
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input type="text" name="name" required value="{{ customer.name if customer else '' }}" placeholder="Your full name"/></div>
+        <div class="form-group"><label>Email *</label><input type="email" name="email" required value="{{ customer.email if customer else '' }}" placeholder="you@email.com"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Phone *</label><input type="tel" name="phone" required value="{{ customer.phone if customer else '' }}" placeholder="+91 XXXXX XXXXX"/></div>
+        <div class="form-group"><label>Quantity</label><input type="number" name="quantity" min="1" max="20" value="1" required/></div>
+      </div>
+      <div class="form-group full"><label>Delivery Address *</label><textarea name="address" required rows="3" placeholder="Full address with city, state, pincode"></textarea></div>
+      <button type="submit" class="btn btn-primary btn-lg full-width">Proceed to Payment ✦</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>{% block title %}Nails on Board{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+<header class="site-header">
+  <nav class="nav-container">
+    <a href="{{ url_for('index') }}" class="logo">✦ <span>Nails on Board</span></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="{{ url_for('index') }}">Home</a></li>
+      <li><a href="{{ url_for('shop') }}">Shop</a></li>
+      <li><a href="{{ url_for('gallery') }}">Gallery</a></li>
+      <li><a href="{{ url_for('appointment') }}">Book</a></li>
+      {% if session.get('customer_logged_in') %}
+      <li><a href="{{ url_for('customer_dashboard') }}" class="nav-account">👤 My Account</a></li>
+      <li><a href="{{ url_for('customer_logout') }}" class="nav-logout">Logout</a></li>
+      {% else %}
+      <li><a href="{{ url_for('customer_login') }}" class="nav-account">Login / Sign Up</a></li>
+      {% endif %}
+      <li><a href="{{ url_for('appointment') }}" class="nav-cta">Book Now</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="dark-toggle" id="darkToggle" title="Toggle dark mode">🌙</button>
+      <button class="nav-toggle" id="navToggle"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+  <div class="mobile-nav" id="mobileNav">
+    <a href="{{ url_for('index') }}">🏠 Home</a>
+    <a href="{{ url_for('shop') }}">🛍️ Shop</a>
+    <a href="{{ url_for('gallery') }}">🖼️ Gallery</a>
+    <a href="{{ url_for('appointment') }}">📅 Book Appointment</a>
+    {% if session.get('customer_logged_in') %}
+    <a href="{{ url_for('customer_dashboard') }}">👤 My Account</a>
+    <a href="{{ url_for('customer_logout') }}">🚪 Logout</a>
+    {% else %}
+    <a href="{{ url_for('customer_login') }}">🔑 Login / Sign Up</a>
+    {% endif %}
+    <a href="{{ url_for('appointment') }}" class="mobile-cta">💅 Book Now</a>
+  </div>
+</header>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages">
+      {% for cat, msg in messages %}
+      <div class="flash flash-{{ cat }}">{{ msg }} <button onclick="this.parentElement.remove()">×</button></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand"><span>✦</span><strong>Nails on Board</strong><p>Premium nail art & products</p></div>
+    <div class="footer-links">
+      <a href="{{ url_for('shop') }}">Shop</a>
+      <a href="{{ url_for('gallery') }}">Gallery</a>
+      <a href="{{ url_for('appointment') }}">Book</a>
+      <a href="{{ url_for('customer_track') }}">Track Order</a>
+      {% if not session.get('customer_logged_in') %}
+      <a href="{{ url_for('customer_login') }}">Login</a>
+      {% endif %}
+    </div>
+    <p class="footer-copy">© 2024 Nails on Board</p>
+  </div>
+</footer>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Shop — Nails on Board{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <h1>Our Collection</h1>
+  <p>Discover premium nail products crafted for perfection</p>
+</section>
+<section class="shop-section">
+  <aside class="shop-sidebar">
+    <h3>Categories</h3>
+    <ul class="category-list">
+      <li><a href="{{ url_for('shop') }}" class="{% if current_category == 'all' %}active{% endif %}">All Products</a></li>
+      {% for cat in categories %}
+      <li><a href="{{ url_for('shop', category=cat) }}" class="{% if current_category == cat %}active{% endif %}">{{ cat }}</a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <div class="shop-main">
+    {% if products %}
+    <div class="products-grid">
+      {% for p in products %}
+      <div class="product-card">
+        <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
+          {% if p.image_filename %}
+          <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy"/>
+          {% else %}
+          <div class="product-img-placeholder">💅</div>
+          {% endif %}
+          <div class="product-overlay">View Details</div>
+        </a>
+        <div class="product-info">
+          <span class="product-cat">{{ p.category }}</span>
+          <h3>{{ p.name }}</h3>
+          <p class="product-desc-short">{{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}</p>
+          <div class="product-footer">
+            <span class="price">₹{{ "%.2f"|format(p.price) }}</span>
+            <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Order Now</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">💅</div>
+      <h3>No products yet</h3>
+      <p>Check back soon for our collection!</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Notifications — Admin{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block content %}
+<div class="panel-header mb-4">
+  <h2>All Notifications ({{ notifs|length }})</h2>
+</div>
+{% if notifs %}
+<div class="notif-list">
+  {% for n in notifs %}
+  <div class="notif-item notif-{{ n.type }}">
+    <div class="notif-icon">
+      {% if n.type == 'order' %}📦{% elif n.type == 'appointment' %}💅{% else %}ℹ️{% endif %}
+    </div>
+    <div class="notif-body">
+      <p>{{ n.message }}</p>
+      <small>{{ n.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+    </div>
+    <div class="notif-badge {% if n.is_read %}read{% else %}unread{% endif %}">
+      {% if n.is_read %}Read{% else %}New{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-admin"><p>No notifications yet.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmed — Nails on Board{% endblock %}
+{% block content %}
+<section class="confirmation-section">
+  <div class="confirmation-card">
+    <div class="confirmation-icon">🎉</div>
+    <h1>Order Placed!</h1>
+    <p>Thank you <strong>{{ order.customer_name }}</strong>! Your order has been received.</p>
+    <div class="confirmation-details">
+      <div class="detail-row"><span>Order ID</span><strong>#{{ order.id }}</strong></div>
+      <div class="detail-row"><span>Product</span><strong>{{ order.product.name }}</strong></div>
+      <div class="detail-row"><span>Quantity</span><strong>{{ order.quantity }}</strong></div>
+      <div class="detail-row"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_price) }}</strong></div>
+      <div class="detail-row"><span>Payment</span><strong class="status-badge {% if order.payment_status=='paid' %}status-confirmed{% else %}status-pending{% endif %}">{{ order.payment_status.replace('_',' ')|title }}</strong></div>
+    </div>
+    <p class="confirmation-note">📧 Confirmation sent to <strong>{{ order.customer_email }}</strong></p>
+    <div class="confirmation-actions">
+      {% if session.get('customer_logged_in') %}
+      <a href="{{ url_for('customer_dashboard') }}" class="btn btn-outline">📦 Track Order</a>
+      {% else %}
+      <a href="{{ url_for('customer_track') }}" class="btn btn-outline">📦 Track Order</a>
+      {% endif %}
+      <a href="{{ url_for('shop') }}" class="btn btn-primary">Continue Shopping</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

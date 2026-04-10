@@ -1,0 +1,155 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Appointment Settings — Admin{% endblock %}
+{% block page_title %}Appointment Settings{% endblock %}
+{% block content %}
+<div class="appt-settings-grid">
+
+  <!-- Services -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="settings-icon">💅</span>
+      <div>
+        <h2>Services Offered</h2>
+        <p>These appear in the booking form for customers to choose from</p>
+      </div>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="action" value="save_services"/>
+      <div class="form-group">
+        <label>One service per line</label>
+        <textarea name="services" rows="10" placeholder="Gel Nails&#10;Nail Art&#10;Manicure">{% for s in services %}{{ s }}
+{% endfor %}</textarea>
+      </div>
+      <button type="submit" class="btn-settings-save">💾 Save Services</button>
+    </form>
+    <div class="settings-preview">
+      <p class="preview-label">Current services ({{ services|length }}):</p>
+      {% for s in services %}
+      <span class="preview-chip">{{ s }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Time Slots -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="settings-icon">⏰</span>
+      <div>
+        <h2>Available Time Slots</h2>
+        <p>Time options customers can book. One slot per line (e.g. 10:00 AM)</p>
+      </div>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="action" value="save_slots"/>
+      <div class="form-group">
+        <label>One time slot per line</label>
+        <textarea name="time_slots" rows="10" placeholder="10:00 AM&#10;11:00 AM&#10;2:00 PM">{% for t in time_slots %}{{ t }}
+{% endfor %}</textarea>
+      </div>
+      <button type="submit" class="btn-settings-save">💾 Save Time Slots</button>
+    </form>
+    <div class="settings-preview">
+      <p class="preview-label">Current slots ({{ time_slots|length }}):</p>
+      {% for t in time_slots %}
+      <span class="preview-chip">{{ t }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Blocked Dates -->
+  <div class="settings-card settings-card-full">
+    <div class="settings-card-header">
+      <span class="settings-icon">🚫</span>
+      <div>
+        <h2>Unavailable Dates</h2>
+        <p>Block specific dates — customers cannot book on these days</p>
+      </div>
+    </div>
+    <div class="blocked-dates-grid">
+      <div>
+        <form method="POST" class="add-blocked-form">
+          <input type="hidden" name="action" value="add_blocked"/>
+          <div class="form-group">
+            <label>Block a Date</label>
+            <div class="blocked-input-row">
+              <input type="date" name="blocked_date" required/>
+              <button type="submit" class="btn-settings-block">🚫 Block Date</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div>
+        <p class="preview-label">Currently blocked ({{ blocked_dates|length }}):</p>
+        {% if blocked_dates %}
+        <div class="blocked-list">
+          {% for d in blocked_dates %}
+          <div class="blocked-date-item">
+            <span>📅 {{ d }}</span>
+            <form method="POST" style="display:inline">
+              <input type="hidden" name="action" value="remove_blocked"/>
+              <input type="hidden" name="remove_date" value="{{ d }}"/>
+              <button type="submit" class="btn-unblock" onclick="return confirm('Remove this blocked date?')">✕ Unblock</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-blocked">No dates blocked — you're available every day!</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <div class="settings-card settings-card-full reset-card">
+    <form method="POST" onsubmit="return confirm('Reset ALL settings to defaults?')">
+      <input type="hidden" name="action" value="reset_defaults"/>
+      <button type="submit" class="btn-settings-reset">↺ Reset All to Defaults</button>
+      <p>Resets services, time slots and clears all blocked dates</p>
+    </form>
+  </div>
+
+</div>
+
+<style>
+.appt-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:768px){.appt-settings-grid{grid-template-columns:1fr}}
+.settings-card{background:var(--white,#fff);border-radius:14px;padding:24px;box-shadow:var(--shadow,0 2px 12px rgba(0,0,0,.08))}
+.settings-card-full{grid-column:1/-1}
+.settings-card-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px}
+.settings-icon{font-size:2rem;flex-shrink:0;margin-top:2px}
+.settings-card-header h2{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:600;color:var(--dark,#1a1118);margin-bottom:4px}
+.settings-card-header p{font-size:.82rem;color:var(--muted,#8a7080)}
+.form-group{display:flex;flex-direction:column;margin-bottom:16px}
+.form-group label{font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#8a7080);margin-bottom:7px}
+.form-group textarea,.form-group input[type=date]{padding:11px 13px;border:1.5px solid var(--blush,#f5dde2);border-radius:9px;font-family:'Jost',sans-serif;font-size:.9rem;color:var(--dark,#1a1118);background:var(--cream,#fdf8f5);outline:none;width:100%;resize:vertical}
+.form-group textarea:focus,.form-group input[type=date]:focus{border-color:var(--deep-rose,#c4687a)}
+.btn-settings-save{background:#c4687a;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-family:'Jost',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:background .2s}
+.btn-settings-save:hover{background:#9b3d54}
+.settings-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--blush,#f5dde2)}
+.preview-label{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#8a7080);margin-bottom:10px}
+.preview-chip{display:inline-block;background:var(--blush,#f5dde2);color:var(--deep-rose,#c4687a);padding:4px 12px;border-radius:20px;font-size:.8rem;font-weight:500;margin:3px}
+.blocked-dates-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:600px){.blocked-dates-grid{grid-template-columns:1fr}}
+.blocked-input-row{display:flex;gap:10px;flex-wrap:wrap}
+.blocked-input-row input{flex:1;min-width:140px}
+.btn-settings-block{background:#f97316;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-family:'Jost',sans-serif;font-size:.86rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.blocked-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto}
+.blocked-date-item{display:flex;justify-content:space-between;align-items:center;background:var(--cream,#fdf8f5);border:1px solid var(--blush,#f5dde2);border-radius:8px;padding:9px 14px;font-size:.88rem}
+.blocked-date-item span{color:var(--mid,#4a3040);font-weight:500}
+.btn-unblock{background:#f8d7da;color:#721c24;border:none;padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer}
+.btn-unblock:hover{background:#721c24;color:#fff}
+.no-blocked{color:var(--muted,#8a7080);font-size:.88rem;padding:12px;background:var(--cream,#fdf8f5);border-radius:8px}
+.reset-card{text-align:center;padding:20px}
+.reset-card p{font-size:.82rem;color:var(--muted,#8a7080);margin-top:8px}
+.btn-settings-reset{background:var(--cream,#fdf8f5);color:var(--muted,#8a7080);border:1.5px solid var(--blush,#f5dde2);padding:10px 22px;border-radius:8px;font-family:'Jost',sans-serif;font-size:.86rem;font-weight:600;cursor:pointer}
+.btn-settings-reset:hover{background:#f8d7da;color:#721c24;border-color:#f5c6cb}
+[data-theme="dark"] .settings-card{background:#1a1030}
+[data-theme="dark"] .settings-card-header h2{color:#e8d8f5}
+[data-theme="dark"] .form-group textarea,[data-theme="dark"] .form-group input[type=date]{background:#0f0a1a;border-color:rgba(160,100,220,.3);color:#e8d8f5}
+[data-theme="dark"] .blocked-date-item{background:#0f0a1a;border-color:rgba(160,100,220,.2)}
+[data-theme="dark"] .blocked-date-item span{color:#c4a8e0}
+[data-theme="dark"] .preview-chip{background:#2d1b4e;color:#c084fc}
+[data-theme="dark"] .no-blocked{background:#0f0a1a;color:#9a7ab5}
+</style>
+{% endblock %}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <title>{% if mode=='signup' %}Sign Up{% else %}Login{% endif %} — Nails on Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <a href="{{ url_for('index') }}" class="auth-brand">✦ Nails on Board</a>
+    <h2>{% if mode=='signup' %}Create Account{% else %}Welcome Back{% endif %}</h2>
+    <p class="auth-sub">{% if mode=='signup' %}Sign up to track orders & appointments{% else %}Login to your account{% endif %}</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat, msg in messages %}<div class="flash flash-{{ cat }}">{{ msg }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+    <form method="POST" class="auth-form" id="authForm" novalidate>
+      {% if mode=='signup' %}
+      <div class="form-group"><label>Full Name *</label><input type="text" name="name" required placeholder="Your name" value="{{ form_name or '' }}"/></div>
+      {% endif %}
+      <div class="form-group"><label>Email Address *</label><input type="email" name="email" required placeholder="you@email.com" value="{{ form_email or '' }}"/></div>
+      {% if mode=='signup' %}
+      <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" placeholder="+91 XXXXX XXXXX" value="{{ form_phone or '' }}"/></div>
+      {% endif %}
+      <div class="form-group">
+        <label>Password *</label>
+        <div class="pw-wrap"><input type="password" name="password" required placeholder="••••••••" id="pwInput"/><button type="button" class="pw-eye" onclick="togglePw('pwInput')">👁</button></div>
+        {% if mode=='signup' %}
+        <div class="pw-rules" id="pwRules">
+          <div class="pw-rule" id="rule-len">✗ At least 8 characters</div>
+          <div class="pw-rule" id="rule-upper">✗ At least 1 uppercase letter (A-Z)</div>
+          <div class="pw-rule" id="rule-lower">✗ At least 1 lowercase letter (a-z)</div>
+        </div>
+        {% else %}
+        <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+        {% endif %}
+      </div>
+      {% if mode=='signup' %}
+      <div class="form-group">
+        <label>Confirm Password *</label>
+        <div class="pw-wrap"><input type="password" name="password2" required placeholder="••••••••" id="pwInput2"/><button type="button" class="pw-eye" onclick="togglePw('pwInput2')">👁</button></div>
+        <span class="pw-match-msg" id="pwMatchMsg"></span>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary full-width">{% if mode=='signup' %}Create Account ✦{% else %}Login →{% endif %}</button>
+    </form>
+    <div class="auth-switch">
+      {% if mode=='signup' %}Already have an account? <a href="{{ url_for('customer_login') }}">Login</a>
+      {% else %}Don't have an account? <a href="{{ url_for('customer_signup') }}">Sign Up Free</a>{% endif %}
+    </div>
+    <a href="{{ url_for('index') }}" class="auth-back">← Back to Home</a>
+  </div>
+</div>
+<script>
+(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme')||'light'); })();
+function togglePw(id){ const i=document.getElementById(id); i.type=i.type==='password'?'text':'password'; }
+{% if mode=='signup' %}
+const pw1=document.getElementById('pwInput'), pw2=document.getElementById('pwInput2');
+function updateRules(val){
+  const checks={'rule-len':val.length>=8,'rule-upper':/[A-Z]/.test(val),'rule-lower':/[a-z]/.test(val)};
+  for(const[id,ok] of Object.entries(checks)){
+    const el=document.getElementById(id);
+    const txt=el.textContent.slice(2);
+    el.textContent=(ok?'✓ ':'✗ ')+txt; el.classList.toggle('ok',ok);
+  }
+}
+pw1.addEventListener('input',function(){updateRules(this.value);});
+pw2.addEventListener('input',function(){
+  const m=document.getElementById('pwMatchMsg');
+  m.textContent=this.value?(this.value===pw1.value?'✓ Passwords match':'✗ Passwords do not match'):'';
+  m.style.color=this.value===pw1.value?'#16a34a':'#ef4444';
+});
+document.getElementById('authForm').addEventListener('submit',function(e){
+  const v=pw1.value;
+  if(v.length<8||!/[A-Z]/.test(v)||!/[a-z]/.test(v)){e.preventDefault();alert('Password must be at least 8 characters with 1 uppercase and 1 lowercase letter.');return;}
+  if(pw1.value!==pw2.value){e.preventDefault();alert('Passwords do not match.');}
+});
+{% endif %}
+</script>
+</body></html>

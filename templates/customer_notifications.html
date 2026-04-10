@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Notifications — Nails on Board{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <h1>Your Notifications</h1>
+  <p>Updates for {{ email }}</p>
+</section>
+<section class="notifications-section">
+  {% if notifs %}
+  <div class="notif-list">
+    {% for n in notifs %}
+    <div class="notif-item notif-{{ n.type }}">
+      <div class="notif-icon">
+        {% if n.type == 'order' %}📦{% elif n.type == 'appointment' %}💅{% else %}ℹ️{% endif %}
+      </div>
+      <div class="notif-body">
+        <p>{{ n.message }}</p>
+        <small>{{ n.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🔔</div>
+    <h3>No notifications yet</h3>
+    <p>Place an order or book an appointment to receive updates here.</p>
+    <a href="{{ url_for('shop') }}" class="btn btn-primary">Shop Now</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

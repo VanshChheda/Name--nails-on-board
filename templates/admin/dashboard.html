@@ -1,0 +1,87 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Dashboard — Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="config-banners">
+  {% if not email_configured %}
+  <div class="config-banner banner-warn">
+    <span>📧</span>
+    <div><strong>Email not configured</strong> — Open <code>app.py</code> and set your Gmail address + App Password to enable free email notifications.
+    <a href="https://myaccount.google.com/apppasswords" target="_blank">Get App Password →</a></div>
+  </div>
+  {% else %}
+  <div class="config-banner banner-ok">
+    <span>📧</span><div><strong>Email Active</strong> — Gmail is configured. Customers and admin will receive email notifications automatically.</div>
+  </div>
+  {% endif %}
+  <div class="config-banner banner-upi">
+    <span>💳</span>
+    <div><strong>UPI Payments Active</strong> — Collecting to: <code>{{ upi_id }}</code> &nbsp;<small>(Change UPI_ID in app.py)</small></div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card stat-pink"><div class="stat-num">{{ total_products }}</div><div class="stat-label">Products</div><div class="stat-icon">💅</div></div>
+  <div class="stat-card stat-rose"><div class="stat-num">{{ total_orders }}</div><div class="stat-label">Orders</div><div class="stat-icon">📦</div></div>
+  <div class="stat-card stat-mauve"><div class="stat-num">{{ total_appointments }}</div><div class="stat-label">Appointments</div><div class="stat-icon">📅</div></div>
+  <div class="stat-card stat-teal"><div class="stat-num">{{ total_customers }}</div><div class="stat-label">Customers</div><div class="stat-icon">👥</div></div>
+  <div class="stat-card stat-gold"><div class="stat-num">{{ unread_notifs }}</div><div class="stat-label">Unread Alerts</div><div class="stat-icon">🔔</div></div>
+</div>
+
+<div class="admin-two-col">
+  <div class="admin-panel">
+    <div class="panel-header"><h2>Recent Orders</h2><a href="{{ url_for('admin_orders') }}">View All →</a></div>
+    {% if recent_orders %}
+    <table class="admin-table">
+      <thead><tr><th>#</th><th>Customer</th><th>Product</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for o in recent_orders %}
+        <tr>
+          <td>#{{ o.id }}</td><td>{{ o.customer_name }}</td><td>{{ o.product.name }}</td>
+          <td>₹{{ "%.0f"|format(o.total_price) }}</td>
+          <td><span class="status-badge status-{{ o.status.replace('_','-') }}">{{ o.status.replace('_',' ')|title }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-msg">No orders yet.</p>{% endif %}
+  </div>
+  <div class="admin-panel">
+    <div class="panel-header"><h2>Recent Appointments</h2><a href="{{ url_for('admin_appointments') }}">View All →</a></div>
+    {% if recent_appointments %}
+    <table class="admin-table">
+      <thead><tr><th>#</th><th>Customer</th><th>Service</th><th>Date</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for a in recent_appointments %}
+        <tr>
+          <td>#{{ a.id }}</td><td>{{ a.customer_name }}</td><td>{{ a.service }}</td>
+          <td>{{ a.preferred_date }}</td>
+          <td><span class="status-badge status-{{ a.status }}">{{ a.status|title }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-msg">No appointments yet.</p>{% endif %}
+  </div>
+</div>
+
+<div class="quick-actions" style="margin-bottom:20px">
+  <h2>🖼️ Homepage Hero Photo</h2>
+  <p style="font-size:.86rem;color:var(--muted);margin:8px 0 14px">Upload your nail art photo for the homepage.</p>
+  <form method="POST" action="{{ url_for('admin_upload_hero') }}" enctype="multipart/form-data" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <input type="file" name="hero_image" accept="image/*" required style="padding:8px 12px;border:1.5px solid var(--blush);border-radius:8px;font-family:'Jost',sans-serif;font-size:.86rem;background:var(--cream);cursor:pointer;" />
+    <button type="submit" style="background:#c4687a;color:#ffffff!important;padding:10px 20px;border-radius:8px;font-family:Jost,sans-serif;font-size:.88rem;font-weight:600;text-decoration:none;display:inline-block;border:none;cursor:pointer">Upload ✦</button>
+  </form>
+</div>
+
+<div class="quick-actions">
+  <h2>Quick Actions</h2>
+  <div class="qa-grid">
+    <a href="{{ url_for('admin_add_product') }}" class="qa-btn">+ Add Product</a>
+    <a href="{{ url_for('admin_orders') }}" class="qa-btn">Manage Orders</a>
+    <a href="{{ url_for('admin_appointments') }}" class="qa-btn">Manage Appointments</a>
+    <a href="{{ url_for('admin_notifications') }}" class="qa-btn">Notifications</a>
+  </div>
+</div>
+{% endblock %}

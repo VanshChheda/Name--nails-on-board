@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Track My Order — Nails on Board{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <h1>Track Your Order</h1>
+  <p>Enter your email to see all your orders, appointments and updates</p>
+</section>
+<section class="track-section">
+  <div class="track-search-card">
+    <form method="POST" class="track-form">
+      <div class="track-input-row">
+        <input type="email" name="email" required placeholder="Enter your email address..." value="{{ email or '' }}"/>
+        <button type="submit" class="btn btn-primary">🔍 Track</button>
+      </div>
+    </form>
+    <p class="track-hint">💡 Use the same email you used when placing an order or booking an appointment.</p>
+    {% if not session.get('customer_logged_in') %}
+    <p class="track-hint" style="margin-top:8px">💡 <a href="{{ url_for('customer_login') }}" style="color:var(--deep-rose);font-weight:600">Login to your account</a> to track without entering email every time.</p>
+    {% endif %}
+  </div>
+
+  {% if results %}
+  {% if results.notifications %}
+  <div class="track-notifs">
+    <h3>🔔 Latest Updates</h3>
+    {% for n in results.notifications[:5] %}
+    <div class="track-notif-item notif-{{ n.type }}">
+      <span class="tni-icon">{% if n.type=='order' %}📦{% elif n.type=='appointment' %}💅{% else %}ℹ️{% endif %}</span>
+      <div><p>{{ n.message }}</p><small>{{ fmt_ist(n.created_at) }}</small></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="track-grid">
+    <div class="track-col">
+      <h2 class="track-col-title">🛍️ Your Orders ({{ results.orders|length }})</h2>
+      {% for o in results.orders %}
+      <div class="track-card">
+        <div class="tc-header">
+          <div><span class="tc-id">Order #{{ o.id }}</span><span class="tc-date">{{ fmt_ist(o.created_at) }}</span></div>
+          <span class="status-badge status-{{ o.status.replace('_','-') }}">{{ o.status.replace('_',' ')|title }}</span>
+        </div>
+        {% if o.product.image_filename %}
+        <img src="{{ url_for('static', filename='uploads/nails/' + o.product.image_filename) }}" class="tc-product-img" alt="{{ o.product.name }}"/>
+        {% endif %}
+        <div class="tc-body">
+          <div class="tc-row"><span>Product</span><strong>{{ o.product.name }}</strong></div>
+          <div class="tc-row"><span>Qty</span><strong>{{ o.quantity }}</strong></div>
+          <div class="tc-row"><span>Total</span><strong class="tc-price">₹{{ "%.2f"|format(o.total_price) }}</strong></div>
+          <div class="tc-row"><span>Payment</span>
+            <span class="status-badge {% if o.payment_status=='paid' %}status-confirmed{% elif o.payment_status=='verification_pending' %}status-processing{% else %}status-pending{% endif %}">{{ o.payment_status.replace('_',' ')|title }}</span>
+          </div>
+          {% if o.payment_ref %}<div class="tc-row"><span>UTR</span><code class="tc-utr">{{ o.payment_ref }}</code></div>{% endif %}
+        </div>
+        <div class="tc-progress">
+          {% set steps=['pending_payment','verification_pending','confirmed','processing','shipped','delivered'] %}
+          {% set labels=['Payment','Verifying','Confirmed','Processing','Shipped','Delivered'] %}
+          {% set ci=steps.index(o.status) if o.status in steps else 0 %}
+          {% for i in range(steps|length) %}
+          <div class="tc-step {% if i<=ci %}done{% endif %} {% if i==ci %}active{% endif %}"><div class="tc-dot"></div><span>{{ labels[i] }}</span></div>
+          {% if not loop.last %}<div class="tc-line {% if i<ci %}done{% endif %}"></div>{% endif %}
+          {% endfor %}
+        </div>
+        {% if o.payment_status=='unpaid' %}
+        <a href="{{ url_for('payment_page', order_id=o.id) }}" class="btn btn-primary btn-sm tc-action-btn">💳 Complete Payment</a>
+        {% endif %}
+      </div>
+      {% else %}<div class="track-empty">No orders found for this email.</div>
+      {% endfor %}
+    </div>
+
+    <div class="track-col">
+      <h2 class="track-col-title">💅 Your Appointments ({{ results.appointments|length }})</h2>
+      {% for a in results.appointments %}
+      <div class="track-card">
+        <div class="tc-header">
+          <div><span class="tc-id">Appt #{{ a.id }}</span><span class="tc-date">{{ fmt_ist(a.created_at) }}</span></div>
+          <span class="status-badge status-{{ a.status }}">{{ a.status|title }}</span>
+        </div>
+        <div class="tc-body">
+          <div class="tc-row"><span>Service</span><strong>{{ a.service }}</strong></div>
+          <div class="tc-row"><span>Date</span><strong>{{ a.preferred_date }}</strong></div>
+          <div class="tc-row"><span>Time</span><strong>{{ a.preferred_time }}</strong></div>
+          {% if a.notes %}<div class="tc-row"><span>Notes</span><em>{{ a.notes }}</em></div>{% endif %}
+        </div>
+        <div class="tc-progress">
+          {% set asteps=['pending','confirmed','completed'] %}{% set alabs=['Requested','Confirmed','Done'] %}
+          {% set ai=asteps.index(a.status) if a.status in asteps else 0 %}
+          {% if a.status=='cancelled' %}
+          <div class="tc-cancelled-badge">❌ Appointment Cancelled</div>
+          {% else %}
+          {% for i in range(asteps|length) %}
+          <div class="tc-step {% if i<=ai %}done{% endif %} {% if i==ai %}active{% endif %}"><div class="tc-dot"></div><span>{{ alabs[i] }}</span></div>
+          {% if not loop.last %}<div class="tc-line {% if i<ai %}done{% endif %}"></div>{% endif %}
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+      {% else %}<div class="track-empty">No appointments found for this email.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if results.notifications %}
+  <div class="track-history">
+    <h2>📋 Full Notification History</h2>
+    <div class="notif-list">
+      {% for n in results.notifications %}
+      <div class="notif-item notif-{{ n.type }}">
+        <div class="notif-icon">{% if n.type=='order' %}📦{% elif n.type=='appointment' %}💅{% else %}ℹ️{% endif %}</div>
+        <div class="notif-body"><p>{{ n.message }}</p><small>{{ fmt_ist(n.created_at) }}</small></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

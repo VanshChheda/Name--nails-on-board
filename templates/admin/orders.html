@@ -1,0 +1,77 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Orders — Admin{% endblock %}
+{% block page_title %}Orders{% endblock %}
+{% block content %}
+<div class="panel-header mb-4"><h2>All Orders ({{ orders|length }})</h2></div>
+{% if orders %}
+<div class="orders-list">
+  {% for o in orders %}
+  <div class="order-block">
+    <div class="order-block-header">
+      <div class="ob-info">
+        <strong>#{{ o.id }} — {{ o.customer_name }}</strong>
+        <span>{{ o.product.name }} × {{ o.quantity }}</span>
+        <span class="price-tag">₹{{ "%.2f"|format(o.total_price) }}</span>
+      </div>
+      <div class="ob-badges">
+        <span class="status-badge status-{{ o.status.replace('_','-') }}">{{ o.status.replace('_',' ')|title }}</span>
+        <span class="status-badge {% if o.payment_status=='paid' %}status-confirmed{% elif o.payment_status=='verification_pending' %}status-processing{% else %}status-pending{% endif %}">
+          💳 {{ o.payment_status.replace('_',' ')|title }}
+        </span>
+        {% if o.payment_ref %}<span class="utr-chip">UTR: {{ o.payment_ref }}</span>{% endif %}
+      </div>
+      <small class="ob-date">{{ o.created_at.strftime('%d %b %Y, %I:%M %p') }} · 📞 {{ o.customer_phone }} · 📧 {{ o.customer_email }}</small>
+      <small class="ob-date">📍 {{ o.customer_address }}</small>
+    </div>
+    <div class="order-block-body">
+      <form method="POST" action="{{ url_for('admin_update_order', oid=o.id) }}" class="ob-form">
+        <div class="ob-form-row">
+          <div class="form-group"><label>Order Status</label>
+            <select name="status" class="mini-select">
+              {% for s in ['pending_payment','verification_pending','confirmed','processing','shipped','delivered','cancelled'] %}
+              <option value="{{ s }}" {% if o.status==s %}selected{% endif %}>{{ s.replace('_',' ')|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>Payment</label>
+            <select name="payment_status" class="mini-select">
+              {% for ps in ['unpaid','verification_pending','paid'] %}
+              <option value="{{ ps }}" {% if o.payment_status==ps %}selected{% endif %}>{{ ps.replace('_',' ')|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn-edit">Update + Email</button>
+        </div>
+      </form>
+      <form method="POST" action="{{ url_for('admin_email_order', oid=o.id) }}" class="ob-sms-form">
+        <div class="ob-form-row">
+          <input type="text" name="custom_msg" placeholder="Custom email message to customer (blank = default update)" class="sms-input" />
+          <button type="submit" class="btn-sms">📧 Send Email</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty-state-admin"><p>No orders yet.</p></div>{% endif %}
+<style>
+.orders-list{display:flex;flex-direction:column;gap:14px}
+.order-block{background:var(--white);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.order-block-header{padding:16px 20px 10px;border-bottom:1px solid var(--blush)}
+.ob-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.ob-info strong{font-size:.97rem;color:var(--dark)}
+.ob-info span{font-size:.83rem;color:var(--muted)}
+.price-tag{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:var(--deep-rose)!important}
+.ob-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.utr-chip{background:#e8f4fd;color:#1a6fa8;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px}
+.ob-date{font-size:.76rem;color:var(--muted);display:block;margin-top:3px}
+.order-block-body{padding:12px 20px;background:rgba(245,221,226,.1);display:flex;flex-direction:column;gap:10px}
+.ob-form-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.ob-form-row .form-group{display:flex;flex-direction:column;gap:4px}
+.ob-form-row label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sms-input{flex:1;min-width:220px;padding:8px 12px;border:1.5px solid var(--blush);border-radius:8px;font-family:'Jost',sans-serif;font-size:.84rem;color:var(--dark);background:var(--cream);outline:none}
+.sms-input:focus{border-color:var(--deep-rose)}
+.btn-sms{padding:8px 16px;background:var(--blush);color:var(--deep-rose);border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+.btn-sms:hover{background:var(--deep-rose);color:var(--white)}
+</style>
+{% endblock %}

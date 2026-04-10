@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} — Nails on Board{% endblock %}
+{% block content %}
+<section class="product-detail-section">
+  <div class="product-detail-grid">
+    <div class="product-detail-img">
+      {% if product.image_filename %}
+        <img src="{{ url_for('static', filename='uploads/nails/' + product.image_filename) }}" alt="{{ product.name }}" />
+      {% else %}
+        <div class="product-img-placeholder large">💅</div>
+      {% endif %}
+    </div>
+    <div class="product-detail-info">
+      <span class="product-cat">{{ product.category }}</span>
+      <h1>{{ product.name }}</h1>
+      <div class="price-large">₹{{ "%.2f"|format(product.price) }}</div>
+      <p class="product-full-desc">{{ product.description }}</p>
+      <div class="stock-badge {% if product.in_stock %}in-stock{% else %}out-stock{% endif %}">
+        {% if product.in_stock %}✓ In Stock{% else %}✗ Out of Stock{% endif %}
+      </div>
+      {% if product.in_stock %}
+      <a href="{{ url_for('place_order', pid=product.id) }}" class="btn btn-primary btn-lg">Order Now</a>
+      {% endif %}
+      <a href="{{ url_for('appointment') }}" class="btn btn-outline">Book Appointment Instead</a>
+    </div>
+  </div>
+</section>
+
+{% if related %}
+<section class="related-section">
+  <h2>You May Also Like</h2>
+  <div class="products-grid">
+    {% for p in related %}
+    <div class="product-card">
+      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
+        {% if p.image_filename %}
+          <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy" />
+        {% else %}
+          <div class="product-img-placeholder">💅</div>
+        {% endif %}
+        <div class="product-overlay">View</div>
+      </a>
+      <div class="product-info">
+        <span class="product-cat">{{ p.category }}</span>
+        <h3>{{ p.name }}</h3>
+        <div class="product-footer">
+          <span class="price">₹{{ "%.2f"|format(p.price) }}</span>
+          <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Order</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

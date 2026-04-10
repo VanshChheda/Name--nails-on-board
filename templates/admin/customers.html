@@ -1,0 +1,18 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Registered Customers{% endblock %}
+{% block content %}
+<div class="panel-header mb-4"><h2>All Customers ({{ customers|length }})</h2></div>
+{% if customers %}
+<div class="admin-table-wrap">
+<table class="admin-table">
+  <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th></tr></thead>
+  <tbody>
+    {% for c in customers %}
+    <tr><td>{{ c.id }}</td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.phone or '—' }}</td><td>{{ fmt_ist(c.created_at) }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state-admin"><p>No registered customers yet.</p></div>{% endif %}
+{% endblock %}

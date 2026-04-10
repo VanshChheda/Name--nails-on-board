@@ -1,0 +1,46 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Products — Admin{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block content %}
+<div class="panel-header mb-4">
+  <h2>All Products ({{ products|length }})</h2>
+  <a href="{{ url_for('admin_add_product') }}" style="background:#c4687a;color:#ffffff;padding:11px 22px;border-radius:8px;font-family:Jost,sans-serif;font-size:.88rem;font-weight:600;text-decoration:none;display:inline-block">+ Add Product</a>
+</div>
+
+{% if products %}
+<div class="admin-products-grid">
+  {% for p in products %}
+  <div class="admin-product-card">
+    <div class="apc-img">
+      {% if p.image_filename %}
+        <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" />
+      {% else %}
+        <div class="apc-img-placeholder">💅</div>
+      {% endif %}
+      <span class="apc-cat">{{ p.category }}</span>
+    </div>
+    <div class="apc-body">
+      <h3>{{ p.name }}</h3>
+      <p>{{ p.description[:60] }}…</p>
+      <div class="apc-footer">
+        <strong>₹{{ "%.2f"|format(p.price) }}</strong>
+        <span class="stock-chip {% if p.in_stock %}in{% else %}out{% endif %}">
+          {% if p.in_stock %}In Stock{% else %}Out of Stock{% endif %}
+        </span>
+      </div>
+      <div class="apc-actions">
+        <a href="{{ url_for('admin_edit_product', pid=p.id) }}" class="btn-edit">Edit</a>
+        <form method="POST" action="{{ url_for('admin_delete_product', pid=p.id) }}" onsubmit="return confirm('Delete this product?')">
+          <button type="submit" class="btn-delete">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-admin">
+  <p>No products yet. <a href="{{ url_for('admin_add_product') }}">Add your first product →</a></p>
+</div>
+{% endif %}
+{% endblock %}
