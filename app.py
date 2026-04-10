@@ -550,6 +550,9 @@ def admin_logout():
     session.clear(); return redirect(url_for('admin_login'))
 
 @app.route('/admin')
+def admin_root():
+    return redirect(url_for('admin_login'))
+@app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
     email_ok = 'your_gmail' not in EMAIL_SENDER
