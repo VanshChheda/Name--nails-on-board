@@ -8,22 +8,56 @@ import os, urllib.parse, smtplib, threading, secrets, json, re
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nailsonboard-kavya-2024')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///nailsonboard.db')
-# Fix Render PostgreSQL URL format
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
+
+# ══════════════════════════════════════════════════════════════
+#  DATABASE — Supabase (free forever)
+#  Get your URL from: supabase.com → project → settings → database
+#  Connection string format: postgresql://postgres:[password]@[host]:5432/postgres
+# ══════════════════════════════════════════════════════════════
+db_url = os.environ.get('DATABASE_URL', '')
+if not db_url:
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
+    db_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'nailsonboard.db')
+if db_url.startswith('postgres://'):
+    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# On Render, use /tmp for uploads (persistent disk not available on free tier)
-UPLOAD_BASE = os.environ.get('UPLOAD_FOLDER', os.path.join('static', 'uploads', 'nails'))
-app.config['UPLOAD_FOLDER'] = UPLOAD_BASE
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # ══════════════════════════════════════════════════════════════
-#  EMAIL  (FREE via Gmail SMTP)
-#  1. myaccount.google.com → Security → 2-Step Verification ON
-#  2. Security → App Passwords → Create one → copy 16-char code
+#  CLOUDINARY — Free image hosting (free forever, 25GB)
+#  Get from: cloudinary.com → Dashboard → API Keys
+# ══════════════════════════════════════════════════════════════
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY    = os.environ.get('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
+
+def init_cloudinary():
+    if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+        try:
+            import cloudinary
+            cloudinary.config(
+                cloud_name=CLOUDINARY_CLOUD_NAME,
+                api_key=CLOUDINARY_API_KEY,
+                api_secret=CLOUDINARY_API_SECRET,
+                secure=True
+            )
+            return True
+        except Exception as e:
+            print(f"[CLOUDINARY] Init error: {e}")
+    return False
+
+CLOUDINARY_ENABLED = init_cloudinary()
+
+# ══════════════════════════════════════════════════════════════
+#  EMAIL — Free Gmail SMTP
 # ══════════════════════════════════════════════════════════════
 EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'your_gmail@gmail.com')
 EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'xxxx xxxx xxxx xxxx')
@@ -40,9 +74,6 @@ UPI_DESCRIPTION = 'Payment to Nails on Board'
 db = SQLAlchemy(app)
 
 # ─── IST helpers ──────────────────────────────────────────────
-def now_ist():
-    return datetime.now(IST).replace(tzinfo=None)
-
 def fmt_ist(dt):
     if dt is None: return ''
     return dt.replace(tzinfo=timezone.utc).astimezone(IST).strftime('%d %b %Y, %I:%M %p IST')
@@ -71,7 +102,8 @@ class NailProduct(db.Model):
     description    = db.Column(db.Text, nullable=False)
     price          = db.Column(db.Float, nullable=False)
     category       = db.Column(db.String(80), nullable=False)
-    image_filename = db.Column(db.String(200), nullable=True)
+    image_filename = db.Column(db.String(500), nullable=True)  # stores Cloudinary URL or filename
+    image_public_id = db.Column(db.String(200), nullable=True) # Cloudinary public_id for deletion
     in_stock       = db.Column(db.Boolean, default=True)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -119,7 +151,6 @@ class PasswordResetToken(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Admin-controlled appointment settings stored as JSON in a simple settings table
 class AppSetting(db.Model):
     id    = db.Column(db.Integer, primary_key=True)
     key   = db.Column(db.String(80), unique=True, nullable=False)
@@ -128,29 +159,85 @@ class AppSetting(db.Model):
 # ─── Settings helpers ─────────────────────────────────────────
 
 def get_setting(key, default=None):
-    s = AppSetting.query.filter_by(key=key).first()
-    if s:
-        try: return json.loads(s.value)
-        except: return s.value
+    try:
+        s = AppSetting.query.filter_by(key=key).first()
+        if s:
+            try: return json.loads(s.value)
+            except: return s.value
+    except: pass
     return default
 
 def set_setting(key, value):
-    s = AppSetting.query.filter_by(key=key).first()
-    if s:
-        s.value = json.dumps(value)
-    else:
-        s = AppSetting(key=key, value=json.dumps(value))
-        db.session.add(s)
-    db.session.commit()
+    try:
+        s = AppSetting.query.filter_by(key=key).first()
+        if s: s.value = json.dumps(value)
+        else: db.session.add(AppSetting(key=key, value=json.dumps(value)))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[SETTING ERROR] {e}")
 
-DEFAULT_SERVICES = [
-    'Gel Nails', 'Acrylic Extension', 'Nail Art',
-    'Manicure', 'Pedicure', 'Nail Jewels', 'Custom Design'
-]
-DEFAULT_TIME_SLOTS = [
-    '10:00 AM', '11:00 AM', '12:00 PM',
-    '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
-]
+DEFAULT_SERVICES   = ['Gel Nails','Acrylic Extension','Nail Art','Manicure','Pedicure','Nail Jewels','Custom Design']
+DEFAULT_TIME_SLOTS = ['10:00 AM','11:00 AM','12:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM']
+
+# ─── Image Upload (Cloudinary or local) ───────────────────────
+
+def allowed_file(f):
+    return '.' in f and f.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def upload_image(file):
+    """Upload to Cloudinary if configured, else save locally. Returns (url_or_filename, public_id)."""
+    if not file or not file.filename or not allowed_file(file.filename):
+        return None, None
+    if CLOUDINARY_ENABLED:
+        try:
+            import cloudinary.uploader
+            result = cloudinary.uploader.upload(
+                file,
+                folder='nails_on_board',
+                transformation=[{'width': 800, 'height': 800, 'crop': 'limit', 'quality': 'auto'}]
+            )
+            print(f"[CLOUDINARY] Uploaded: {result['secure_url']}")
+            return result['secure_url'], result['public_id']
+        except Exception as e:
+            print(f"[CLOUDINARY UPLOAD ERROR] {e}")
+            # Fall back to local
+    # Local fallback
+    try:
+        upload_dir = os.path.join('static', 'uploads', 'nails')
+        os.makedirs(upload_dir, exist_ok=True)
+        fn = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
+        file.save(os.path.join(upload_dir, fn))
+        return fn, None
+    except Exception as e:
+        print(f"[LOCAL UPLOAD ERROR] {e}")
+        return None, None
+
+def delete_image(image_ref, public_id=None):
+    """Delete from Cloudinary or local."""
+    if public_id and CLOUDINARY_ENABLED:
+        try:
+            import cloudinary.uploader
+            cloudinary.uploader.destroy(public_id)
+            print(f"[CLOUDINARY] Deleted: {public_id}")
+        except Exception as e:
+            print(f"[CLOUDINARY DELETE ERROR] {e}")
+    elif image_ref and not image_ref.startswith('http'):
+        try:
+            fp = os.path.join('static', 'uploads', 'nails', image_ref)
+            if os.path.exists(fp): os.remove(fp)
+        except Exception as e:
+            print(f"[LOCAL DELETE ERROR] {e}")
+
+def get_image_url(product):
+    """Get display URL for product image."""
+    if not product.image_filename:
+        return None
+    if product.image_filename.startswith('http'):
+        return product.image_filename  # Cloudinary URL
+    return url_for('static', filename='uploads/nails/' + product.image_filename)
+
+app.jinja_env.globals['get_image_url'] = get_image_url
 
 # ─── Email ────────────────────────────────────────────────────
 
@@ -158,17 +245,19 @@ def _send_thread(to, subject, body):
     try:
         if 'your_gmail' in EMAIL_SENDER:
             print(f"[EMAIL SKIPPED] To:{to} | {subject}"); return
-        msg = __import__('email.mime.multipart', fromlist=['MIMEMultipart']).MIMEMultipart('alternative')
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From']    = f"{EMAIL_NAME} <{EMAIL_SENDER}>"
         msg['To']      = to
-        msg.attach(__import__('email.mime.text', fromlist=['MIMEText']).MIMEText(body, 'html'))
+        msg.attach(MIMEText(body, 'html'))
         with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15) as s:
             s.login(EMAIL_SENDER, EMAIL_PASSWORD)
             s.sendmail(EMAIL_SENDER, to, msg.as_string())
         print(f"[EMAIL OK] {to} | {subject}")
     except smtplib.SMTPAuthenticationError:
-        print("[EMAIL ERROR] Wrong App Password. Check EMAIL_PASSWORD in app.py")
+        print("[EMAIL ERROR] Wrong App Password.")
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
 
@@ -191,16 +280,6 @@ def email_html(title, body_html, cta_url=None, cta_text=None):
 
 # ─── Helpers ──────────────────────────────────────────────────
 
-def allowed_file(f):
-    return '.' in f and f.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def save_upload(file):
-    if not file or not file.filename or not allowed_file(file.filename):
-        return None
-    fn = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
-    file.save(os.path.join(app.config['UPLOAD_FOLDER'], fn))
-    return fn
-
 def admin_required(f):
     from functools import wraps
     @wraps(f)
@@ -222,22 +301,20 @@ def customer_login_required(f):
     return d
 
 def add_notif(msg, t='info', target='admin', email=None):
-    db.session.add(Notification(message=msg, type=t, target=target, customer_email=email))
-    db.session.commit()
+    try:
+        db.session.add(Notification(message=msg, type=t, target=target, customer_email=email))
+        db.session.commit()
+    except:
+        db.session.rollback()
 
 def validate_password(pw):
-    """Returns error string or None if valid."""
-    if len(pw) < 8:
-        return 'Password must be at least 8 characters.'
-    if not re.search(r'[A-Z]', pw):
-        return 'Password must contain at least 1 uppercase letter.'
-    if not re.search(r'[a-z]', pw):
-        return 'Password must contain at least 1 lowercase letter.'
+    if len(pw) < 8:          return 'Password must be at least 8 characters.'
+    if not re.search(r'[A-Z]', pw): return 'Password must contain at least 1 uppercase letter.'
+    if not re.search(r'[a-z]', pw): return 'Password must contain at least 1 lowercase letter.'
     return None
 
 def make_upi_url(amount, ref):
-    p = {'pa': UPI_ID, 'pn': UPI_NAME, 'am': f"{amount:.2f}", 'cu': 'INR',
-         'tn': f'Order #{ref}', 'tr': str(ref)}
+    p = {'pa':UPI_ID,'pn':UPI_NAME,'am':f"{amount:.2f}",'cu':'INR','tn':f'Order #{ref}','tr':str(ref)}
     return 'upi://pay?' + urllib.parse.urlencode(p)
 
 def make_qr(upi_url):
@@ -270,10 +347,9 @@ def customer_signup():
         session['customer_name']      = name
         send_email(email, 'Welcome to Nails on Board! 💅', email_html(
             'Welcome to Nails on Board!',
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>Your account has been created. Track your orders & appointments anytime!</p>',
+            f'<p>Hi <strong>{name}</strong>,</p><p>Your account is ready! Track orders & appointments anytime.</p>',
             url_for('customer_dashboard', _external=True), 'Go to My Account →'))
-        flash(f'Welcome {name}! Account created successfully.', 'success')
+        flash(f'Welcome {name}! Account created.', 'success')
         return redirect(url_for('customer_dashboard'))
     return render_template('customer_auth.html', mode='signup')
 
@@ -305,7 +381,7 @@ def customer_logout():
 def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        c     = Customer.query.filter_by(email=email).first()
+        c = Customer.query.filter_by(email=email).first()
         if c:
             PasswordResetToken.query.filter_by(email=email).delete()
             token  = secrets.token_urlsafe(32)
@@ -314,13 +390,10 @@ def forgot_password():
             db.session.commit()
             reset_url = url_for('reset_password', token=token, _external=True)
             send_email(email, 'Reset Your Password — Nails on Board', email_html(
-                'Password Reset Request 🔐',
-                f'<p>Hi <strong>{c.name}</strong>,</p>'
-                f'<p>Click the button below to set a new password. This link expires in <strong>30 minutes</strong>.</p>'
-                f'<p style="background:#fff3cd;border-left:4px solid #d4a96a;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px">'
-                f'If you did not request this, ignore this email. Your password will not change.</p>',
+                'Password Reset 🔐',
+                f'<p>Hi <strong>{c.name}</strong>,</p><p>Click below to reset your password. Link expires in 30 minutes.</p>',
                 reset_url, 'Reset My Password →'))
-        flash('If that email exists, a reset link has been sent. Check your inbox.', 'success')
+        flash('If that email exists, a reset link has been sent.', 'success')
         return redirect(url_for('forgot_password'))
     return render_template('forgot_password.html')
 
@@ -328,7 +401,7 @@ def forgot_password():
 def reset_password(token):
     r = PasswordResetToken.query.filter_by(token=token, used=False).first()
     if not r or r.expires_at < datetime.utcnow():
-        flash('This reset link has expired or is invalid. Please request a new one.', 'error')
+        flash('This reset link has expired. Please request a new one.', 'error')
         return redirect(url_for('forgot_password'))
     if request.method == 'POST':
         pw  = request.form.get('password', '')
@@ -347,13 +420,7 @@ def reset_password(token):
         c.password_hash = generate_password_hash(pw)
         r.used = True
         db.session.commit()
-        send_email(c.email, 'Password Changed — Nails on Board', email_html(
-            'Password Changed ✅',
-            f'<p>Hi <strong>{c.name}</strong>,</p><p>Your password was changed successfully.</p>'
-            f'<p style="background:#f8d7da;border-left:4px solid #c4687a;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px">'
-            f'If you did not do this, contact us immediately.</p>',
-            url_for('customer_login', _external=True), 'Login Now →'))
-        flash('Password changed! Please login with your new password.', 'success')
+        flash('Password changed! Please login.', 'success')
         return redirect(url_for('customer_login'))
     return render_template('reset_password.html', token=token)
 
@@ -366,19 +433,15 @@ def customer_dashboard():
     notifs = Notification.query.filter_by(target='customer', customer_email=email).order_by(Notification.created_at.desc()).all()
     for n in notifs: n.is_read = True
     db.session.commit()
-    return render_template('customer_dashboard.html',
-        orders=orders, appointments=appts, notifications=notifs,
-        customer_name=session['customer_name'], email=email)
+    return render_template('customer_dashboard.html', orders=orders, appointments=appts,
+        notifications=notifs, customer_name=session['customer_name'], email=email)
 
 # ─── Customer Public Routes ───────────────────────────────────
 
 @app.route('/')
 def index():
     products = NailProduct.query.filter_by(in_stock=True).order_by(NailProduct.created_at.desc()).all()
-    hero_img = None
-    htxt = os.path.join('static', 'uploads', 'nails', 'hero.txt')
-    if os.path.exists(htxt):
-        with open(htxt) as f: hero_img = f.read().strip()
+    hero_img = get_setting('hero_image_url', None)
     return render_template('index.html', products=products, hero_img=hero_img)
 
 @app.route('/shop')
@@ -415,17 +478,17 @@ def place_order(pid):
         add_notif(f"Order #{o.id} placed for {product.name} ×{qty}. Please complete UPI payment.", 'order', 'customer', o.customer_email)
         send_email(o.customer_email, f"Order #{o.id} Placed — Nails on Board", email_html(
             f"Order #{o.id} Received 💅",
-            f"<p>Hi <strong>{o.customer_name}</strong>,</p><p>Your order is placed!</p>"
+            f"<p>Hi <strong>{o.customer_name}</strong>,</p>"
             f"<table style='width:100%;border-collapse:collapse;margin:12px 0'>"
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Product</td><td style='padding:8px 12px'>{product.name}</td></tr>"
             f"<tr><td style='padding:8px 12px;font-weight:600;border-top:1px solid #f5dde2'>Qty</td><td style='padding:8px 12px;border-top:1px solid #f5dde2'>{qty}</td></tr>"
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Total</td><td style='padding:8px 12px'>₹{o.total_price:.2f}</td></tr>"
-            f"</table><p>Please complete UPI payment to confirm.</p>",
+            f"</table>",
             url_for('payment_page', order_id=o.id, _external=True), "Pay Now →"))
-        send_email(ADMIN_EMAIL, f"🛍️ New Order #{o.id} — {o.customer_name}", email_html(
+        send_email(ADMIN_EMAIL, f"🛍️ New Order #{o.id}", email_html(
             f"New Order #{o.id}",
-            f"<p><strong>{o.customer_name}</strong> · {o.customer_email} · {o.customer_phone}</p>"
-            f"<p>{product.name} ×{qty} = ₹{o.total_price:.2f}</p><p>Address: {o.customer_address}</p>",
+            f"<p>{o.customer_name} · {o.customer_email} · {o.customer_phone}</p>"
+            f"<p>{product.name} ×{qty} = ₹{o.total_price:.2f}</p>",
             url_for('admin_orders', _external=True), "View in Admin →"))
         return redirect(url_for('payment_page', order_id=o.id))
     return render_template('order.html', product=product, customer=customer)
@@ -442,24 +505,24 @@ def confirm_payment(order_id):
     order = Order.query.get_or_404(order_id)
     utr   = request.form.get('utr_ref', '').strip()
     if not utr:
-        flash('Please enter your UPI Transaction ID / UTR.', 'error')
+        flash('Please enter your UPI Transaction ID.', 'error')
         return redirect(url_for('payment_page', order_id=order_id))
     order.payment_ref    = utr
     order.payment_status = 'verification_pending'
     order.status         = 'verification_pending'
     db.session.commit()
-    add_notif(f"💳 Payment UTR for Order #{order.id}: {utr} — Verify now!", 'order', 'admin')
-    add_notif(f"Payment ref {utr} received for Order #{order.id}. Verifying soon!", 'order', 'customer', order.customer_email)
+    add_notif(f"💳 Payment UTR for Order #{order.id}: {utr}", 'order', 'admin')
+    add_notif(f"Payment ref {utr} received for Order #{order.id}.", 'order', 'customer', order.customer_email)
     send_email(order.customer_email, f"Payment Received — Order #{order.id}", email_html(
         "Payment Reference Received ✅",
         f"<p>Hi <strong>{order.customer_name}</strong>,</p>"
-        f"<p>UTR received: <strong style='font-family:monospace;font-size:16px'>{utr}</strong></p>"
-        f"<p>We'll verify and confirm your order shortly.</p>",
+        f"<p>UTR: <strong style='font-family:monospace'>{utr}</strong></p>"
+        f"<p>We'll verify and confirm shortly.</p>",
         url_for('customer_dashboard', _external=True), "Track My Order →"))
-    send_email(ADMIN_EMAIL, f"💳 Payment UTR — Order #{order.id}", email_html(
+    send_email(ADMIN_EMAIL, f"💳 Verify Payment — Order #{order.id}", email_html(
         f"Verify Payment #{order.id}",
-        f"<p><strong>{order.customer_name}</strong> submitted UTR: <strong style='font-family:monospace'>{utr}</strong></p>",
-        url_for('admin_orders', _external=True), "Verify in Admin →"))
+        f"<p>UTR: <strong style='font-family:monospace'>{utr}</strong></p>",
+        url_for('admin_orders', _external=True), "Verify →"))
     flash('Payment submitted! We will verify and confirm your order.', 'success')
     return redirect(url_for('order_confirmation', order_id=order_id))
 
@@ -489,8 +552,8 @@ def appointment():
             notes=request.form.get('notes', '').strip()
         )
         db.session.add(a); db.session.commit()
-        add_notif(f"📅 New appointment #{a.id} — {a.customer_name} | {a.service} on {a.preferred_date} at {a.preferred_time}", 'appointment', 'admin')
-        add_notif(f"Appointment #{a.id} for {a.service} on {a.preferred_date} received!", 'appointment', 'customer', a.customer_email)
+        add_notif(f"📅 New appointment — {a.customer_name} | {a.service} on {a.preferred_date}", 'appointment', 'admin')
+        add_notif(f"Appointment for {a.service} on {a.preferred_date} received!", 'appointment', 'customer', a.customer_email)
         send_email(a.customer_email, "Appointment Requested — Nails on Board", email_html(
             "Appointment Received 💅",
             f"<p>Hi <strong>{a.customer_name}</strong>,</p>"
@@ -498,14 +561,14 @@ def appointment():
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Service</td><td style='padding:8px 12px'>{a.service}</td></tr>"
             f"<tr><td style='padding:8px 12px;font-weight:600;border-top:1px solid #f5dde2'>Date</td><td style='padding:8px 12px;border-top:1px solid #f5dde2'>{a.preferred_date}</td></tr>"
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Time</td><td style='padding:8px 12px'>{a.preferred_time}</td></tr>"
-            f"</table><p>We'll confirm shortly!</p>",
+            f"</table>",
             url_for('customer_dashboard', _external=True), "Track Appointment →"))
         send_email(ADMIN_EMAIL, f"📅 New Appointment — {a.customer_name}", email_html(
             "New Appointment",
-            f"<p><strong>{a.customer_name}</strong> · {a.customer_email} · {a.customer_phone}</p>"
+            f"<p>{a.customer_name} · {a.customer_email} · {a.customer_phone}</p>"
             f"<p>{a.service} on {a.preferred_date} at {a.preferred_time}</p>",
-            url_for('admin_appointments', _external=True), "View in Admin →"))
-        flash('Appointment submitted! Check your email for confirmation.', 'success')
+            url_for('admin_appointments', _external=True), "View →"))
+        flash('Appointment submitted! Check your email.', 'success')
         return redirect(url_for('appointment_confirmation', appt_id=a.id))
     return render_template('appointment.html', customer=customer,
                            services=services, time_slots=time_slots, blocked_dates=blocked)
@@ -559,6 +622,7 @@ def admin_logout():
 @admin_required
 def admin_dashboard():
     email_ok = 'your_gmail' not in EMAIL_SENDER
+    cloud_ok = CLOUDINARY_ENABLED
     return render_template('admin/dashboard.html',
         total_products=NailProduct.query.count(),
         total_orders=Order.query.count(),
@@ -569,7 +633,7 @@ def admin_dashboard():
         unread_notifs=Notification.query.filter_by(target='admin', is_read=False).count(),
         recent_orders=Order.query.order_by(Order.created_at.desc()).limit(5).all(),
         recent_appointments=Appointment.query.order_by(Appointment.created_at.desc()).limit(5).all(),
-        email_configured=email_ok, upi_id=UPI_ID)
+        email_configured=email_ok, upi_id=UPI_ID, cloudinary_enabled=cloud_ok)
 
 @app.route('/admin/products')
 @admin_required
@@ -581,11 +645,15 @@ def admin_products():
 @admin_required
 def admin_add_product():
     if request.method == 'POST':
-        img = save_upload(request.files.get('image'))
+        img_url, pub_id = upload_image(request.files.get('image'))
         db.session.add(NailProduct(
-            name=request.form['name'].strip(), description=request.form['description'].strip(),
-            price=float(request.form['price']), category=request.form['category'].strip(),
-            image_filename=img, in_stock=bool(request.form.get('in_stock'))))
+            name=request.form['name'].strip(),
+            description=request.form['description'].strip(),
+            price=float(request.form['price']),
+            category=request.form['category'].strip(),
+            image_filename=img_url,
+            image_public_id=pub_id,
+            in_stock=bool(request.form.get('in_stock'))))
         db.session.commit()
         flash('Product added!', 'success')
         return redirect(url_for('admin_products'))
@@ -596,28 +664,34 @@ def admin_add_product():
 def admin_edit_product(pid):
     p = NailProduct.query.get_or_404(pid)
     if request.method == 'POST':
-        new_img = save_upload(request.files.get('image'))
+        new_img, new_pub_id = upload_image(request.files.get('image'))
         if new_img:
-            if p.image_filename:
-                old = os.path.join(app.config['UPLOAD_FOLDER'], p.image_filename)
-                if os.path.exists(old): os.remove(old)
-            p.image_filename = new_img
-        p.name=request.form['name'].strip(); p.description=request.form['description'].strip()
-        p.price=float(request.form['price']); p.category=request.form['category'].strip()
+            delete_image(p.image_filename, p.image_public_id)
+            p.image_filename  = new_img
+            p.image_public_id = new_pub_id
+        p.name=request.form['name'].strip()
+        p.description=request.form['description'].strip()
+        p.price=float(request.form['price'])
+        p.category=request.form['category'].strip()
         p.in_stock=bool(request.form.get('in_stock'))
-        db.session.commit(); flash('Product updated!', 'success')
+        db.session.commit()
+        flash('Product updated!', 'success')
         return redirect(url_for('admin_products'))
     return render_template('admin/edit_product.html', product=p)
 
 @app.route('/admin/products/delete/<int:pid>', methods=['POST'])
 @admin_required
 def admin_delete_product(pid):
-    p = NailProduct.query.get_or_404(pid)
-    if p.image_filename:
-        fp = os.path.join(app.config['UPLOAD_FOLDER'], p.image_filename)
-        if os.path.exists(fp): os.remove(fp)
-    db.session.delete(p); db.session.commit()
-    flash('Product deleted.', 'success')
+    try:
+        p = NailProduct.query.get_or_404(pid)
+        delete_image(p.image_filename, p.image_public_id)
+        db.session.delete(p)
+        db.session.commit()
+        flash('Product deleted!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DELETE ERROR] {e}")
+        flash('Error deleting product. Please try again.', 'error')
     return redirect(url_for('admin_products'))
 
 @app.route('/admin/orders')
@@ -633,24 +707,24 @@ def admin_update_order(oid):
     o.status         = request.form['status']
     o.payment_status = request.form.get('payment_status', o.payment_status)
     db.session.commit()
-    add_notif(f"Order #{o.id} updated → {o.status.replace('_',' ').title()} | Payment: {o.payment_status.replace('_',' ').title()}", 'order', 'customer', o.customer_email)
-    send_email(o.customer_email, f"Order #{o.id} Update — Nails on Board", email_html(
+    add_notif(f"Order #{o.id} → {o.status.replace('_',' ').title()} | Payment: {o.payment_status.replace('_',' ').title()}", 'order', 'customer', o.customer_email)
+    send_email(o.customer_email, f"Order #{o.id} Update", email_html(
         f"Order #{o.id} Updated",
         f"<p>Hi <strong>{o.customer_name}</strong>,</p>"
         f"<p>Status: <strong>{o.status.replace('_',' ').title()}</strong> | Payment: <strong>{o.payment_status.replace('_',' ').title()}</strong></p>",
-        url_for('customer_dashboard', _external=True), "Track Order →"))
-    flash('Order updated & email sent!', 'success')
+        url_for('customer_dashboard', _external=True), "Track →"))
+    flash('Order updated!', 'success')
     return redirect(url_for('admin_orders'))
 
 @app.route('/admin/orders/email/<int:oid>', methods=['POST'])
 @admin_required
 def admin_email_order(oid):
-    o = Order.query.get_or_404(oid)
-    msg = request.form.get('custom_msg', '').strip() or f"Update on your Order #{o.id}: {o.status.replace('_',' ')}."
+    o   = Order.query.get_or_404(oid)
+    msg = request.form.get('custom_msg', '').strip() or f"Update on Order #{o.id}: {o.status.replace('_',' ')}."
     add_notif(msg, 'order', 'customer', o.customer_email)
-    send_email(o.customer_email, f"Order #{o.id} Message — Nails on Board", email_html(
+    send_email(o.customer_email, f"Order #{o.id} Update", email_html(
         f"Order #{o.id}", f"<p>Hi <strong>{o.customer_name}</strong>,</p><p>{msg}</p>",
-        url_for('customer_dashboard', _external=True), "Track Order →"))
+        url_for('customer_dashboard', _external=True), "Track →"))
     flash('Email sent!', 'success')
     return redirect(url_for('admin_orders'))
 
@@ -667,17 +741,17 @@ def admin_update_appointment(aid):
     a.status = request.form['status']
     db.session.commit()
     msgs = {
-        'confirmed': f"Your {a.service} on {a.preferred_date} at {a.preferred_time} is <strong>CONFIRMED</strong> 💅",
-        'completed': f"Thank you for visiting! Your {a.service} is complete. Hope you love your nails! 💅",
-        'cancelled': f"Your {a.service} on {a.preferred_date} was cancelled. Please contact us to reschedule.",
+        'confirmed': f"Your {a.service} on {a.preferred_date} at {a.preferred_time} is CONFIRMED 💅",
+        'completed': f"Thank you for visiting! Hope you love your {a.service}! 💅",
+        'cancelled': f"Your {a.service} on {a.preferred_date} was cancelled. Please contact us.",
     }
-    body = msgs.get(a.status, f"Your {a.service} appointment is now <strong>{a.status}</strong>.")
-    add_notif(f"Appointment #{a.id} ({a.service}) → {a.status.title()}", 'appointment', 'customer', a.customer_email)
+    body = msgs.get(a.status, f"Your {a.service} appointment is now {a.status}.")
+    add_notif(f"Appointment #{a.id} → {a.status.title()}", 'appointment', 'customer', a.customer_email)
     send_email(a.customer_email, "Appointment Update — Nails on Board", email_html(
         f"Appointment {a.status.title()} 💅",
         f"<p>Hi <strong>{a.customer_name}</strong>,</p><p>{body}</p>",
-        url_for('customer_dashboard', _external=True), "View Appointment →"))
-    flash('Appointment updated & email sent!', 'success')
+        url_for('customer_dashboard', _external=True), "View →"))
+    flash('Appointment updated!', 'success')
     return redirect(url_for('admin_appointments'))
 
 @app.route('/admin/appointments/email/<int:aid>', methods=['POST'])
@@ -685,16 +759,13 @@ def admin_update_appointment(aid):
 def admin_email_appointment(aid):
     a   = Appointment.query.get_or_404(aid)
     msg = request.form.get('custom_msg', '').strip() or \
-          f"Reminder: Your {a.service} on {a.preferred_date} at {a.preferred_time}. See you at Nails on Board!"
+          f"Reminder: Your {a.service} on {a.preferred_date} at {a.preferred_time}."
     add_notif(msg, 'appointment', 'customer', a.customer_email)
     send_email(a.customer_email, "Appointment Reminder — Nails on Board", email_html(
-        "Appointment Reminder 💅",
-        f"<p>Hi <strong>{a.customer_name}</strong>,</p><p>{msg}</p>",
-        url_for('customer_dashboard', _external=True), "View Appointment →"))
+        "Reminder 💅", f"<p>Hi <strong>{a.customer_name}</strong>,</p><p>{msg}</p>",
+        url_for('customer_dashboard', _external=True), "View →"))
     flash('Email sent!', 'success')
     return redirect(url_for('admin_appointments'))
-
-# ─── Admin: Appointment Settings ─────────────────────────────
 
 @app.route('/admin/appointment-settings', methods=['GET', 'POST'])
 @admin_required
@@ -702,32 +773,28 @@ def admin_appt_settings():
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'save_services':
-            raw = request.form.get('services', '')
-            services = [s.strip() for s in raw.splitlines() if s.strip()]
+            services = [s.strip() for s in request.form.get('services','').splitlines() if s.strip()]
             set_setting('appt_services', services)
             flash(f'{len(services)} services saved!', 'success')
         elif action == 'save_slots':
-            raw = request.form.get('time_slots', '')
-            slots = [s.strip() for s in raw.splitlines() if s.strip()]
+            slots = [s.strip() for s in request.form.get('time_slots','').splitlines() if s.strip()]
             set_setting('appt_time_slots', slots)
             flash(f'{len(slots)} time slots saved!', 'success')
         elif action == 'add_blocked':
-            date = request.form.get('blocked_date', '').strip()
+            date = request.form.get('blocked_date','').strip()
             if date:
                 blocked = get_setting('appt_blocked_dates', [])
                 if date not in blocked:
-                    blocked.append(date)
-                    blocked.sort()
+                    blocked.append(date); blocked.sort()
                     set_setting('appt_blocked_dates', blocked)
-                flash(f'{date} marked as unavailable.', 'success')
+                flash(f'{date} blocked.', 'success')
         elif action == 'remove_blocked':
-            date = request.form.get('remove_date', '').strip()
+            date = request.form.get('remove_date','').strip()
             if date:
                 blocked = get_setting('appt_blocked_dates', [])
-                if date in blocked:
-                    blocked.remove(date)
-                    set_setting('appt_blocked_dates', blocked)
-                flash(f'{date} removed from blocked dates.', 'success')
+                if date in blocked: blocked.remove(date)
+                set_setting('appt_blocked_dates', blocked)
+                flash(f'{date} unblocked.', 'success')
         elif action == 'reset_defaults':
             set_setting('appt_services', DEFAULT_SERVICES)
             set_setting('appt_time_slots', DEFAULT_TIME_SLOTS)
@@ -763,10 +830,13 @@ def notif_count():
 def admin_upload_hero():
     f = request.files.get('hero_image')
     if f and f.filename and allowed_file(f.filename):
-        fn = f"hero_nail.{f.filename.rsplit('.',1)[1].lower()}"
-        f.save(os.path.join(app.config['UPLOAD_FOLDER'], fn))
-        with open(os.path.join('static', 'uploads', 'nails', 'hero.txt'), 'w') as txt: txt.write(fn)
-        flash('Hero image updated!', 'success')
+        img_url, pub_id = upload_image(f)
+        if img_url:
+            set_setting('hero_image_url', img_url)
+            set_setting('hero_image_pub_id', pub_id or '')
+            flash('Hero image updated!', 'success')
+        else:
+            flash('Image upload failed. Please try again.', 'error')
     return redirect(url_for('admin_dashboard'))
 
 # ─── Init DB ──────────────────────────────────────────────────
@@ -780,16 +850,17 @@ def init_db():
                 password_hash=generate_password_hash('KRC@2004'),
                 email='admin@nailsonboard.com'))
             db.session.commit()
-            print("✅ Admin: KavyaChheda0510 / KRC@2004")
+            print("✅ Admin created: KavyaChheda0510 / KRC@2004")
+        print(f"✅ Database ready")
+        print(f"✅ Cloudinary: {'Active' if CLOUDINARY_ENABLED else 'Not configured (using local)'}")
 
 if __name__ == '__main__':
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     init_db()
     email_ok = 'your_gmail' not in EMAIL_SENDER
-    print("\n🌸 Nails on Board is running!")
-    print("   Customer:   http://127.0.0.1:5000")
-    print("   Admin:      http://127.0.0.1:5000/admin/login")
-    print("   Login:      KavyaChheda0510 / KRC@2004")
-    print(f"   Email:      {'✅ Configured' if email_ok else '⚠️  Add Gmail in app.py'}\n")
+    print(f"\n🌸 Nails on Board running!")
+    print(f"   http://127.0.0.1:5000")
+    print(f"   Admin: KavyaChheda0510 / KRC@2004")
+    print(f"   Email: {'✅' if email_ok else '⚠️ Not configured'}")
+    print(f"   Cloudinary: {'✅' if CLOUDINARY_ENABLED else '⚠️ Not configured'}\n")
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
