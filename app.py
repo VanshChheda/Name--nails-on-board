@@ -73,7 +73,6 @@ UPI_DESCRIPTION = 'Payment to Nails on Board'
 
 db = SQLAlchemy(app)
 
-
 # ─── IST helpers ──────────────────────────────────────────────
 def fmt_ist(dt):
     if dt is None: return ''
