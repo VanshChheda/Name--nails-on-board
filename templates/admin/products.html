@@ -13,7 +13,8 @@
   <div class="admin-product-card">
     <div class="apc-img">
       {% if p.image_filename %}
-        <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" />
+        {% set img_url = get_image_url(p) %}
+        {% if img_url %}<img src="{{ img_url }}" alt="{{ p.name }}" />{% endif %}
       {% else %}
         <div class="apc-img-placeholder">💅</div>
       {% endif %}
