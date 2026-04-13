@@ -255,10 +255,20 @@ def _send_thread(to, subject, body):
         msg['From']    = f"{EMAIL_NAME} <{sender}>"
         msg['To']      = to
         msg.attach(MIMEText(body, 'html'))
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as s:
-            s.ehlo()
-            s.login(sender, password)
-            s.sendmail(sender, to, msg.as_string())
+        # Try port 587 (STARTTLS) first, fallback to 465 (SSL)
+        try:
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=20) as s:
+                s.ehlo()
+                s.starttls()
+                s.ehlo()
+                s.login(sender, password)
+                s.sendmail(sender, to, msg.as_string())
+        except Exception as e1:
+            print(f"[EMAIL] Port 587 failed: {e1}, trying 465...")
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as s:
+                s.ehlo()
+                s.login(sender, password)
+                s.sendmail(sender, to, msg.as_string())
         print(f"[EMAIL OK ✅] {to} | {subject}")
     except smtplib.SMTPAuthenticationError as e:
         print(f"[EMAIL AUTH ERROR ❌] Wrong App Password or Gmail security blocked. Details: {e}")
