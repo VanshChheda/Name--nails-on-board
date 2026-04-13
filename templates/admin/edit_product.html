@@ -7,7 +7,7 @@
     {% if product.image_filename %}
     <div class="current-image">
       <label>Current Photo</label>
-      <img src="{{ url_for('static', filename='uploads/nails/' + product.image_filename) }}" alt="Current" />
+      {% set img_url = get_image_url(product) %}{% if img_url %}<img src="{{ img_url }}" alt="Current" />{% endif %}
     </div>
     {% endif %}
     <div class="form-row">
