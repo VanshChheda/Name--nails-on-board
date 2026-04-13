@@ -243,23 +243,29 @@ app.jinja_env.globals['get_image_url'] = get_image_url
 
 def _send_thread(to, subject, body):
     try:
-        if 'your_gmail' in EMAIL_SENDER:
-            print(f"[EMAIL SKIPPED] To:{to} | {subject}"); return
+        sender = EMAIL_SENDER
+        password = EMAIL_PASSWORD
+        if 'your_gmail' in sender or 'xxxx' in password:
+            print(f"[EMAIL SKIPPED - not configured] To:{to} | {subject}"); return
+        print(f"[EMAIL ATTEMPTING] To:{to} | From:{sender}")
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f"{EMAIL_NAME} <{EMAIL_SENDER}>"
+        msg['From']    = f"{EMAIL_NAME} <{sender}>"
         msg['To']      = to
         msg.attach(MIMEText(body, 'html'))
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15) as s:
-            s.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            s.sendmail(EMAIL_SENDER, to, msg.as_string())
-        print(f"[EMAIL OK] {to} | {subject}")
-    except smtplib.SMTPAuthenticationError:
-        print("[EMAIL ERROR] Wrong App Password.")
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as s:
+            s.ehlo()
+            s.login(sender, password)
+            s.sendmail(sender, to, msg.as_string())
+        print(f"[EMAIL OK ✅] {to} | {subject}")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[EMAIL AUTH ERROR ❌] Wrong App Password or Gmail security blocked. Details: {e}")
+    except smtplib.SMTPException as e:
+        print(f"[EMAIL SMTP ERROR ❌] {e}")
     except Exception as e:
-        print(f"[EMAIL ERROR] {e}")
+        print(f"[EMAIL ERROR ❌] {type(e).__name__}: {e}")
 
 def send_email(to, subject, body):
     threading.Thread(target=_send_thread, args=(to, subject, body), daemon=True).start()
