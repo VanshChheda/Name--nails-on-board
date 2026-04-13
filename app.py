@@ -242,40 +242,31 @@ app.jinja_env.globals['get_image_url'] = get_image_url
 # ─── Email ────────────────────────────────────────────────────
 
 def _send_thread(to, subject, body):
+    """Send via SendGrid API (Render-compatible) or Gmail SMTP fallback."""
     try:
+        sendgrid_key = os.environ.get('SENDGRID_API_KEY', '')
         sender = EMAIL_SENDER
         password = EMAIL_PASSWORD
-        if 'your_gmail' in sender or 'xxxx' in password:
-            print(f"[EMAIL SKIPPED - not configured] To:{to} | {subject}"); return
-        print(f"[EMAIL ATTEMPTING] To:{to} | From:{sender}")
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From']    = f"{EMAIL_NAME} <{sender}>"
-        msg['To']      = to
-        msg.attach(MIMEText(body, 'html'))
-        # Try port 587 (STARTTLS) first, fallback to 465 (SSL)
-        try:
-            with smtplib.SMTP('smtp.gmail.com', 587, timeout=20) as s:
-                s.ehlo()
-                s.starttls()
-                s.ehlo()
-                s.login(sender, password)
-                s.sendmail(sender, to, msg.as_string())
-        except Exception as e1:
-            print(f"[EMAIL] Port 587 failed: {e1}, trying 465...")
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as s:
-                s.ehlo()
-                s.login(sender, password)
-                s.sendmail(sender, to, msg.as_string())
-        print(f"[EMAIL OK ✅] {to} | {subject}")
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"[EMAIL AUTH ERROR ❌] Wrong App Password or Gmail security blocked. Details: {e}")
-    except smtplib.SMTPException as e:
-        print(f"[EMAIL SMTP ERROR ❌] {e}")
+        if sendgrid_key and sendgrid_key not in ('', 'your_sendgrid_key'):
+            import urllib.request as _ur
+            import json as _j
+            payload = _j.dumps({'personalizations':[{'to':[{'email':to}]}],'from':{'email':sender,'name':EMAIL_NAME},'subject':subject,'content':[{'type':'text/html','value':body}]}).encode()
+            req = _ur.Request('https://api.sendgrid.com/v3/mail/send',data=payload,headers={'Authorization':f'Bearer {sendgrid_key}','Content-Type':'application/json'},method='POST')
+            with _ur.urlopen(req,timeout=15) as r:
+                print(f"[EMAIL OK ✅ SendGrid] {to} | status={r.status}")
+        elif 'your_gmail' not in sender and 'xxxx' not in password:
+            from email.mime.multipart import MIMEMultipart as M
+            from email.mime.text import MIMEText as T
+            msg = M('alternative'); msg['Subject']=subject; msg['From']=f'{EMAIL_NAME} <{sender}>'; msg['To']=to
+            msg.attach(T(body,'html'))
+            with smtplib.SMTP('smtp.gmail.com',587,timeout=20) as s:
+                s.ehlo(); s.starttls(); s.login(sender,password); s.sendmail(sender,to,msg.as_string())
+            print(f"[EMAIL OK ✅ Gmail] {to}")
+        else:
+            print(f"[EMAIL SKIPPED] Configure SENDGRID_API_KEY in Render env vars. To:{to}")
     except Exception as e:
         print(f"[EMAIL ERROR ❌] {type(e).__name__}: {e}")
+
 
 def send_email(to, subject, body):
     threading.Thread(target=_send_thread, args=(to, subject, body), daemon=True).start()
