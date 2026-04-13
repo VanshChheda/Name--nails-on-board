@@ -5,7 +5,7 @@
   <div class="form-card">
     <div class="form-header"><h1>Place Your Order</h1><p>Fill in your details below</p></div>
     <div class="order-product-summary">
-      {% if product.image_filename %}<img src="{{ url_for('static', filename='uploads/nails/' + product.image_filename) }}" alt="{{ product.name }}"/>
+      {% set img_url = get_image_url(product) %}{% if img_url %}<img src="{{ img_url }}" alt="{{ product.name }}"/>
       {% else %}<div class="order-product-icon">💅</div>{% endif %}
       <div><strong>{{ product.name }}</strong><span>₹{{ "%.2f"|format(product.price) }} each</span></div>
     </div>
