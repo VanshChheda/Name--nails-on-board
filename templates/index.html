@@ -16,10 +16,17 @@
     <div class="hero-ring hero-ring-2"></div>
     <div class="hero-photo-frame">
       {% if hero_img %}
+      {% if hero_img.startswith('http') %}
+      <a href="{{ hero_img }}" target="_blank" class="hero-photo-inner">
+        <img src="{{ hero_img }}" alt="Nails on Board" class="hero-nail-photo"/>
+        <div class="hero-photo-tag">✦ Signature Collection</div>
+      </a>
+      {% else %}
       <a href="{{ url_for('static', filename='uploads/nails/' + hero_img) }}" target="_blank" class="hero-photo-inner">
         <img src="{{ url_for('static', filename='uploads/nails/' + hero_img) }}" alt="Nails on Board" class="hero-nail-photo"/>
         <div class="hero-photo-tag">✦ Signature Collection</div>
       </a>
+      {% endif %}
       {% else %}
       <div class="hero-photo-inner">
         <img src="https://images.unsplash.com/photo-1604654894610-df63bc536371?w=600&q=80" alt="Nail Art" class="hero-nail-photo" onerror="this.parentElement.innerHTML='<div class=hero-photo-fallback>💅<span>Nails on Board</span></div>'"/>
