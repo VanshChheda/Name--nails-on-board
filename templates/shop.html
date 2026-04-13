@@ -21,8 +21,9 @@
       {% for p in products %}
       <div class="product-card">
         <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
-          {% if p.image_filename %}
-          <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy"/>
+          {% set img_url = get_image_url(p) %}
+          {% if img_url %}
+          <img src="{{ img_url }}" alt="{{ p.name }}" loading="lazy"/>
           {% else %}
           <div class="product-img-placeholder">💅</div>
           {% endif %}
