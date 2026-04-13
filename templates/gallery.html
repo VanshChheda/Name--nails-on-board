@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Gallery — Nails on Board{% endblock %}
 {% block content %}
-<section class="page-hero">
-  <h1>Our Gallery</h1>
-  <p>Browse our stunning nail art creations</p>
-</section>
+<section class="page-hero"><h1>Our Gallery</h1><p>Browse our stunning nail art creations</p></section>
 <section class="gallery-section">
   {% if products %}
   <div class="gallery-grid">
     {% for p in products %}
+    {% set img_url = get_image_url(p) %}
+    {% if img_url %}
     <div class="gallery-item">
-      <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy" />
-      <div class="gallery-caption">
-        <span>{{ p.name }}</span>
-        <a href="{{ url_for('product_detail', pid=p.id) }}">View →</a>
-      </div>
+      <a href="{{ img_url }}" target="_blank" title="{{ p.name }}">
+        <img src="{{ img_url }}" alt="{{ p.name }}" loading="lazy"/>
+        <div class="gallery-caption">
+          <span>{{ p.name }}</span>
+          <a href="{{ url_for('product_detail', pid=p.id) }}" onclick="event.stopPropagation()">View →</a>
+        </div>
+      </a>
     </div>
+    {% endif %}
     {% endfor %}
   </div>
   {% else %}
