@@ -444,3 +444,30 @@ img{max-width:100%;height:auto;display:block}
   .admin-nav a span:first-child{font-size:.9rem}
   .admin-nav a{padding:7px 8px;font-size:.7rem}
 }
+
+/* ── Product Image Zoom ── */
+.product-img-zoom-link {
+  display: block; position: relative; overflow: hidden;
+  border-radius: var(--radius); cursor: zoom-in;
+  box-shadow: var(--shadow);
+}
+.product-img-zoom-link img {
+  width: 100%; height: auto; display: block;
+  transition: transform .4s ease;
+}
+.product-img-zoom-link:hover img { transform: scale(1.03); }
+.zoom-hint {
+  position: absolute; bottom: 12px; right: 12px;
+  background: rgba(0,0,0,.6); color: #fff;
+  padding: 6px 12px; border-radius: 20px;
+  font-size: .78rem; font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Gallery clickable ── */
+.gallery-item a { display: block; width: 100%; height: 100%; }
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-caption { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(15,10,26,.8)); padding: 20px 14px 12px; display: flex; justify-content: space-between; align-items: flex-end; opacity: 0; transition: opacity var(--tr); }
+.gallery-item:hover .gallery-caption { opacity: 1; }
+.gallery-caption span { color: #fff; font-size: .84rem; font-weight: 500; }
+.gallery-caption a { color: var(--rose); text-decoration: none; font-size: .8rem; }
