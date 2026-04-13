@@ -4,10 +4,15 @@
 <section class="product-detail-section">
   <div class="product-detail-grid">
     <div class="product-detail-img">
-      {% if product.image_filename %}
-        <img src="{{ url_for('static', filename='uploads/nails/' + product.image_filename) }}" alt="{{ product.name }}" />
+      {% set img_url = get_image_url(product) %}
+      {% if img_url %}
+      <!-- Clickable zoomable image -->
+      <a href="{{ img_url }}" target="_blank" class="product-img-zoom-link" title="Click to view full size">
+        <img src="{{ img_url }}" alt="{{ product.name }}" id="productMainImg"/>
+        <div class="zoom-hint">🔍 Click to zoom</div>
+      </a>
       {% else %}
-        <div class="product-img-placeholder large">💅</div>
+      <div class="product-img-placeholder large">💅</div>
       {% endif %}
     </div>
     <div class="product-detail-info">
@@ -33,10 +38,11 @@
     {% for p in related %}
     <div class="product-card">
       <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
-        {% if p.image_filename %}
-          <img src="{{ url_for('static', filename='uploads/nails/' + p.image_filename) }}" alt="{{ p.name }}" loading="lazy" />
+        {% set img_url = get_image_url(p) %}
+        {% if img_url %}
+        <img src="{{ img_url }}" alt="{{ p.name }}" loading="lazy"/>
         {% else %}
-          <div class="product-img-placeholder">💅</div>
+        <div class="product-img-placeholder">💅</div>
         {% endif %}
         <div class="product-overlay">View</div>
       </a>
