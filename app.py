@@ -242,7 +242,7 @@ app.jinja_env.globals['get_image_url'] = get_image_url
 # ─── Email ────────────────────────────────────────────────────
 
 def _send_thread(to, subject, body):
-    """Send via SendGrid API (Render-compatible) or Gmail SMTP fallback."""
+    """Send via SendGrid API with anti-spam headers."""
     try:
         sendgrid_key = os.environ.get('SENDGRID_API_KEY', '')
         sender = EMAIL_SENDER
@@ -250,20 +250,55 @@ def _send_thread(to, subject, body):
         if sendgrid_key and sendgrid_key not in ('', 'your_sendgrid_key'):
             import urllib.request as _ur
             import json as _j
-            payload = _j.dumps({'personalizations':[{'to':[{'email':to}]}],'from':{'email':sender,'name':EMAIL_NAME},'subject':subject,'content':[{'type':'text/html','value':body}]}).encode()
-            req = _ur.Request('https://api.sendgrid.com/v3/mail/send',data=payload,headers={'Authorization':f'Bearer {sendgrid_key}','Content-Type':'application/json'},method='POST')
-            with _ur.urlopen(req,timeout=15) as r:
+            # Add plain text version to avoid spam filters
+            import re as _re
+            plain_text = _re.sub('<[^>]+>', '', body).strip()
+            payload = _j.dumps({
+                'personalizations': [{'to': [{'email': to}]}],
+                'from': {'email': sender, 'name': EMAIL_NAME},
+                'reply_to': {'email': sender, 'name': EMAIL_NAME},
+                'subject': subject,
+                'content': [
+                    {'type': 'text/plain', 'value': plain_text},
+                    {'type': 'text/html', 'value': body}
+                ],
+                'mail_settings': {
+                    'bypass_spam_management': {'enable': False}
+                },
+                'tracking_settings': {
+                    'click_tracking': {'enable': False},
+                    'open_tracking': {'enable': False}
+                }
+            }).encode()
+            req = _ur.Request(
+                'https://api.sendgrid.com/v3/mail/send',
+                data=payload,
+                headers={
+                    'Authorization': f'Bearer {sendgrid_key}',
+                    'Content-Type': 'application/json'
+                },
+                method='POST'
+            )
+            with _ur.urlopen(req, timeout=15) as r:
                 print(f"[EMAIL OK ✅ SendGrid] {to} | status={r.status}")
         elif 'your_gmail' not in sender and 'xxxx' not in password:
             from email.mime.multipart import MIMEMultipart as M
             from email.mime.text import MIMEText as T
-            msg = M('alternative'); msg['Subject']=subject; msg['From']=f'{EMAIL_NAME} <{sender}>'; msg['To']=to
-            msg.attach(T(body,'html'))
-            with smtplib.SMTP('smtp.gmail.com',587,timeout=20) as s:
-                s.ehlo(); s.starttls(); s.login(sender,password); s.sendmail(sender,to,msg.as_string())
+            msg = M('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f'{EMAIL_NAME} <{sender}>'
+            msg['To'] = to
+            msg['Reply-To'] = sender
+            import re as _re
+            plain_text = _re.sub('<[^>]+>', '', body).strip()
+            msg.attach(T(plain_text, 'plain'))
+            msg.attach(T(body, 'html'))
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=20) as s:
+                s.ehlo(); s.starttls(); s.login(sender, password)
+                s.sendmail(sender, to, msg.as_string())
             print(f"[EMAIL OK ✅ Gmail] {to}")
         else:
-            print(f"[EMAIL SKIPPED] Configure SENDGRID_API_KEY in Render env vars. To:{to}")
+            print(f"[EMAIL SKIPPED] Configure SENDGRID_API_KEY. To:{to}")
     except Exception as e:
         print(f"[EMAIL ERROR ❌] {type(e).__name__}: {e}")
 
