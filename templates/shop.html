@@ -35,7 +35,13 @@
           <p class="product-desc-short">{{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}</p>
           <div class="product-footer">
             <span class="price">₹{{ "%.2f"|format(p.price) }}</span>
-            <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Order Now</a>
+            <div class="product-actions">
+              <form method="POST" action="{{ url_for('cart_add', pid=p.id) }}" style="display:inline">
+                <input type="hidden" name="quantity" value="1"/>
+                <button type="submit" class="btn btn-sm btn-outline">Add to Cart</button>
+              </form>
+              <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Buy Now</a>
+            </div>
           </div>
         </div>
       </div>

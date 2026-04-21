@@ -5,6 +5,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, timezone, timedelta
 import os, urllib.parse, smtplib, threading, secrets, json, re
+from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nailsonboard-kavya-2024')
@@ -62,12 +64,12 @@ CLOUDINARY_ENABLED = init_cloudinary()
 EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'your_gmail@gmail.com')
 EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'xxxx xxxx xxxx xxxx')
 EMAIL_NAME     = 'Nails on Board'
-ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'your_gmail@gmail.com')
+ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'nailsonboard5@gmail.com')
 
 # ══════════════════════════════════════════════════════════════
 #  UPI PAYMENT
 # ══════════════════════════════════════════════════════════════
-UPI_ID          = os.environ.get('UPI_ID', 'yourname@upi')
+UPI_ID          = os.environ.get('UPI_ID', 'kavyachheda0510@okaxis')
 UPI_NAME        = 'Nails on Board'
 UPI_DESCRIPTION = 'Payment to Nails on Board'
 
@@ -134,6 +136,16 @@ class Order(db.Model):
     created_at       = db.Column(db.DateTime, default=datetime.utcnow)
     product          = db.relationship('NailProduct', backref='orders')
 
+class OrderItem(db.Model):
+    id         = db.Column(db.Integer, primary_key=True)
+    order_id   = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('nail_product.id'), nullable=False)
+    quantity   = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Float, nullable=False)
+    line_total = db.Column(db.Float, nullable=False)
+    order      = db.relationship('Order', backref=db.backref('items', lazy=True, cascade='all, delete-orphan'))
+    product    = db.relationship('NailProduct')
+
 class Notification(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
     message        = db.Column(db.Text, nullable=False)
@@ -155,6 +167,30 @@ class AppSetting(db.Model):
     id    = db.Column(db.Integer, primary_key=True)
     key   = db.Column(db.String(80), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=False)
+
+# ─── DB init (works on Gunicorn/Render too) ────────────────────
+
+_DB_READY = False
+
+def ensure_db_ready():
+    global _DB_READY
+    if _DB_READY:
+        return
+    try:
+        with app.app_context():
+            db.create_all()
+            if not Admin.query.first():
+                db.session.add(Admin(
+                    username='KavyaChheda0510',
+                    password_hash=generate_password_hash('KRC@2004'),
+                    email=ADMIN_EMAIL
+                ))
+                db.session.commit()
+    except Exception as e:
+        print(f"[DB INIT ERROR] {e}")
+    _DB_READY = True
+
+ensure_db_ready()
 
 # ─── Settings helpers ─────────────────────────────────────────
 
@@ -282,20 +318,22 @@ def _send_thread(to, subject, body):
             with _ur.urlopen(req, timeout=15) as r:
                 print(f"[EMAIL OK ✅ SendGrid] {to} | status={r.status}")
         elif 'your_gmail' not in sender and 'xxxx' not in password:
-            from email.mime.multipart import MIMEMultipart as M
-            from email.mime.text import MIMEText as T
-            msg = M('alternative')
+            import re as _re
+            plain_text = _re.sub('<[^>]+>', '', body).strip()
+
+            msg = EmailMessage()
             msg['Subject'] = subject
             msg['From'] = f'{EMAIL_NAME} <{sender}>'
             msg['To'] = to
-            msg['Reply-To'] = sender
-            import re as _re
-            plain_text = _re.sub('<[^>]+>', '', body).strip()
-            msg.attach(T(plain_text, 'plain'))
-            msg.attach(T(body, 'html'))
+            msg['Reply-To'] = f'{EMAIL_NAME} <{sender}>'
+            msg['Date'] = formatdate(localtime=False)
+            msg['Message-ID'] = make_msgid(domain=sender.split('@')[-1] if '@' in sender else None)
+            msg['X-Mailer'] = 'Nails on Board'
+            msg.set_content(plain_text or 'Hello from Nails on Board.')
+            msg.add_alternative(body, subtype='html')
             with smtplib.SMTP('smtp.gmail.com', 587, timeout=20) as s:
                 s.ehlo(); s.starttls(); s.login(sender, password)
-                s.sendmail(sender, to, msg.as_string())
+                s.send_message(msg)
             print(f"[EMAIL OK ✅ Gmail] {to}")
         else:
             print(f"[EMAIL SKIPPED] Configure SENDGRID_API_KEY. To:{to}")
@@ -319,6 +357,34 @@ def email_html(title, body_html, cta_url=None, cta_text=None):
             f'<div style="padding:22px 26px;color:#4a3040;line-height:1.7;font-size:14px">{body_html}{cta}</div>'
             f'<div style="background:#f5dde2;padding:12px 26px;text-align:center;font-size:11px;color:#8a7080">'
             f'© Nails on Board</div></div></div>')
+
+# ─── Cart helpers (session cart) ───────────────────────────────
+
+def _cart_raw():
+    cart = session.get('cart')
+    if not isinstance(cart, dict):
+        cart = {}
+    items = cart.get('items')
+    if not isinstance(items, dict):
+        items = {}
+    fixed = {}
+    for k, v in items.items():
+        try:
+            pid = int(k)
+            qty = int(v)
+        except Exception:
+            continue
+        if qty > 0:
+            fixed[str(pid)] = min(99, qty)
+    cart['items'] = fixed
+    session['cart'] = cart
+    return cart
+
+def cart_count():
+    cart = _cart_raw()
+    return sum(int(q) for q in cart['items'].values())
+
+app.jinja_env.globals['cart_count'] = cart_count
 
 # ─── Helpers ──────────────────────────────────────────────────
 
@@ -387,8 +453,8 @@ def customer_signup():
         session['customer_logged_in'] = True
         session['customer_email']     = email
         session['customer_name']      = name
-        send_email(email, 'Welcome to Nails on Board! 💅', email_html(
-            'Welcome to Nails on Board!',
+        send_email(email, 'Welcome to Nails on Board', email_html(
+            'Welcome to Nails on Board',
             f'<p>Hi <strong>{name}</strong>,</p><p>Your account is ready! Track orders & appointments anytime.</p>',
             url_for('customer_dashboard', _external=True), 'Go to My Account →'))
         flash(f'Welcome {name}! Account created.', 'success')
@@ -500,6 +566,175 @@ def product_detail(pid):
     related = NailProduct.query.filter_by(category=p.category, in_stock=True).filter(NailProduct.id != pid).limit(4).all()
     return render_template('product_detail.html', product=p, related=related)
 
+@app.route('/cart')
+def cart_page():
+    cart = _cart_raw()
+    item_map = cart.get('items', {})
+    pids = [int(pid) for pid in item_map.keys()] if item_map else []
+    products = NailProduct.query.filter(NailProduct.id.in_(pids)).all() if pids else []
+    by_id = {p.id: p for p in products}
+    rows = []
+    total = 0.0
+    for pid_str, qty in item_map.items():
+        pid = int(pid_str)
+        p = by_id.get(pid)
+        if not p:
+            continue
+        q = int(qty)
+        line = float(p.price) * q
+        total += line
+        rows.append({'product': p, 'quantity': q, 'line_total': line})
+    return render_template('cart.html', rows=rows, total=total)
+
+@app.route('/cart/add/<int:pid>', methods=['POST'])
+def cart_add(pid):
+    p = NailProduct.query.get_or_404(pid)
+    if not p.in_stock:
+        flash('This item is currently out of stock.', 'error')
+        return redirect(request.referrer or url_for('shop'))
+    qty_raw = request.form.get('quantity', '1')
+    try:
+        qty = int(qty_raw)
+    except Exception:
+        qty = 1
+    qty = max(1, min(20, qty))
+
+    cart = _cart_raw()
+    items = cart['items']
+    items[str(pid)] = min(99, int(items.get(str(pid), 0)) + qty)
+    session['cart'] = cart
+    flash(f'Added to cart: {p.name}', 'success')
+    return redirect(request.referrer or url_for('cart_page'))
+
+@app.route('/cart/update', methods=['POST'])
+def cart_update():
+    cart = _cart_raw()
+    new_items = {}
+    for k, v in request.form.items():
+        if not k.startswith('qty_'):
+            continue
+        pid = k.replace('qty_', '').strip()
+        try:
+            pid_int = int(pid)
+            qty_int = int(v)
+        except Exception:
+            continue
+        if qty_int > 0:
+            new_items[str(pid_int)] = min(99, qty_int)
+    cart['items'] = new_items
+    session['cart'] = cart
+    flash('Cart updated.', 'success')
+    return redirect(url_for('cart_page'))
+
+@app.route('/cart/remove/<int:pid>', methods=['POST'])
+def cart_remove(pid):
+    cart = _cart_raw()
+    cart['items'].pop(str(pid), None)
+    session['cart'] = cart
+    flash('Item removed from cart.', 'success')
+    return redirect(url_for('cart_page'))
+
+@app.route('/cart/clear', methods=['POST'])
+def cart_clear():
+    session['cart'] = {'items': {}}
+    flash('Cart cleared.', 'success')
+    return redirect(url_for('cart_page'))
+
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout():
+    cart = _cart_raw()
+    item_map = cart.get('items', {})
+    if not item_map:
+        flash('Your cart is empty.', 'error')
+        return redirect(url_for('shop'))
+
+    customer = Customer.query.filter_by(email=session['customer_email']).first() if session.get('customer_logged_in') else None
+
+    pids = [int(pid) for pid in item_map.keys()]
+    products = NailProduct.query.filter(NailProduct.id.in_(pids)).all()
+    by_id = {p.id: p for p in products}
+
+    rows = []
+    total = 0.0
+    for pid_str, qty in item_map.items():
+        pid = int(pid_str)
+        p = by_id.get(pid)
+        if not p or not p.in_stock:
+            continue
+        q = int(qty)
+        line = float(p.price) * q
+        total += line
+        rows.append({'product': p, 'quantity': q, 'line_total': line})
+
+    if not rows:
+        flash('Your cart has no purchasable items right now.', 'error')
+        return redirect(url_for('cart_page'))
+
+    if request.method == 'POST':
+        first = rows[0]
+        o = Order(
+            customer_name=request.form['name'].strip(),
+            customer_email=request.form['email'].strip().lower(),
+            customer_phone=request.form['phone'].strip(),
+            customer_address=request.form['address'].strip(),
+            product_id=first['product'].id,
+            quantity=first['quantity'],
+            total_price=total,
+            status='pending_payment',
+            payment_status='unpaid'
+        )
+        db.session.add(o)
+        db.session.flush()
+
+        for r in rows:
+            p = r['product']
+            q = r['quantity']
+            db.session.add(OrderItem(
+                order_id=o.id,
+                product_id=p.id,
+                quantity=q,
+                unit_price=float(p.price),
+                line_total=float(p.price) * q
+            ))
+        db.session.commit()
+
+        session['cart'] = {'items': {}}
+
+        item_lines = ''.join(
+            f"<tr><td style='padding:8px 12px;border-top:1px solid #f5dde2'>{r['product'].name}</td>"
+            f"<td style='padding:8px 12px;border-top:1px solid #f5dde2;text-align:center'>{r['quantity']}</td>"
+            f"<td style='padding:8px 12px;border-top:1px solid #f5dde2;text-align:right'>₹{r['line_total']:.2f}</td></tr>"
+            for r in rows
+        )
+
+        add_notif(f"🛍️ New order #{o.id} from {o.customer_name} — {len(rows)} item(s) | ₹{o.total_price:.0f}", 'order', 'admin')
+        add_notif(f"Order #{o.id} placed. Please complete UPI payment to confirm.", 'order', 'customer', o.customer_email)
+
+        send_email(o.customer_email, f"Order #{o.id} Placed — Nails on Board", email_html(
+            f"Order #{o.id} Received",
+            f"<p>Hi <strong>{o.customer_name}</strong>,</p>"
+            f"<table style='width:100%;border-collapse:collapse;margin:12px 0'>"
+            f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Item</td>"
+            f"<td style='padding:8px 12px;font-weight:600;text-align:center'>Qty</td>"
+            f"<td style='padding:8px 12px;font-weight:600;text-align:right'>Total</td></tr>"
+            f"{item_lines}"
+            f"<tr style='background:#f5dde2'><td colspan='2' style='padding:8px 12px;font-weight:700'>Grand Total</td>"
+            f"<td style='padding:8px 12px;font-weight:700;text-align:right'>₹{o.total_price:.2f}</td></tr>"
+            f"</table>",
+            url_for('payment_page', order_id=o.id, _external=True), "Pay Now →"
+        ))
+
+        send_email(ADMIN_EMAIL, f"New Order #{o.id} — Nails on Board", email_html(
+            f"New Order #{o.id}",
+            f"<p>{o.customer_name} · {o.customer_email} · {o.customer_phone}</p>"
+            f"<p>Items: <strong>{len(rows)}</strong> · Total: <strong>₹{o.total_price:.2f}</strong></p>",
+            url_for('admin_orders', _external=True), "View in Admin →"
+        ))
+
+        return redirect(url_for('payment_page', order_id=o.id))
+
+    return render_template('checkout.html', customer=customer, rows=rows, total=total)
+
 @app.route('/order/<int:pid>', methods=['GET', 'POST'])
 def place_order(pid):
     product  = NailProduct.query.get_or_404(pid)
@@ -527,7 +762,7 @@ def place_order(pid):
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Total</td><td style='padding:8px 12px'>₹{o.total_price:.2f}</td></tr>"
             f"</table>",
             url_for('payment_page', order_id=o.id, _external=True), "Pay Now →"))
-        send_email(ADMIN_EMAIL, f"🛍️ New Order #{o.id}", email_html(
+        send_email(ADMIN_EMAIL, f"New Order #{o.id} — Nails on Board", email_html(
             f"New Order #{o.id}",
             f"<p>{o.customer_name} · {o.customer_email} · {o.customer_phone}</p>"
             f"<p>{product.name} ×{qty} = ₹{o.total_price:.2f}</p>",
@@ -561,7 +796,7 @@ def confirm_payment(order_id):
         f"<p>UTR: <strong style='font-family:monospace'>{utr}</strong></p>"
         f"<p>We'll verify and confirm shortly.</p>",
         url_for('customer_dashboard', _external=True), "Track My Order →"))
-    send_email(ADMIN_EMAIL, f"💳 Verify Payment — Order #{order.id}", email_html(
+    send_email(ADMIN_EMAIL, f"Verify Payment — Order #{order.id}", email_html(
         f"Verify Payment #{order.id}",
         f"<p>UTR: <strong style='font-family:monospace'>{utr}</strong></p>",
         url_for('admin_orders', _external=True), "Verify →"))
@@ -605,7 +840,7 @@ def appointment():
             f"<tr style='background:#f5dde2'><td style='padding:8px 12px;font-weight:600'>Time</td><td style='padding:8px 12px'>{a.preferred_time}</td></tr>"
             f"</table>",
             url_for('customer_dashboard', _external=True), "Track Appointment →"))
-        send_email(ADMIN_EMAIL, f"📅 New Appointment — {a.customer_name}", email_html(
+        send_email(ADMIN_EMAIL, f"New Appointment — {a.customer_name}", email_html(
             "New Appointment",
             f"<p>{a.customer_name} · {a.customer_email} · {a.customer_phone}</p>"
             f"<p>{a.service} on {a.preferred_date} at {a.preferred_time}</p>",
@@ -890,7 +1125,7 @@ def init_db():
             db.session.add(Admin(
                 username='KavyaChheda0510',
                 password_hash=generate_password_hash('KRC@2004'),
-                email='admin@nailsonboard.com'))
+                email=ADMIN_EMAIL))
             db.session.commit()
             print("✅ Admin created: KavyaChheda0510 / KRC@2004")
         print(f"✅ Database ready")

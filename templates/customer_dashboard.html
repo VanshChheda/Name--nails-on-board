@@ -33,8 +33,20 @@
         {% if prod_img %}<img src="{{ prod_img }}" class="tc-product-img" alt="{{ o.product.name }}"/>{% endif %}
         {% endif %}
         <div class="tc-body">
+          {% if o.items and o.items|length > 0 %}
+          <div class="tc-row"><span>Items</span><strong>{{ o.items|length }}</strong></div>
+          <div class="tc-row"><span>Includes</span>
+            <strong>
+              {% for it in o.items[:3] %}
+                {{ it.product.name if it.product else ('Product #' ~ it.product_id) }} × {{ it.quantity }}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+              {% if o.items|length > 3 %}…{% endif %}
+            </strong>
+          </div>
+          {% else %}
           <div class="tc-row"><span>Product</span><strong>{{ o.product.name }}</strong></div>
           <div class="tc-row"><span>Qty</span><strong>{{ o.quantity }}</strong></div>
+          {% endif %}
           <div class="tc-row"><span>Total</span><strong class="tc-price">₹{{ "%.2f"|format(o.total_price) }}</strong></div>
           <div class="tc-row"><span>Payment</span>
             <span class="status-badge {% if o.payment_status=='paid' %}status-confirmed{% elif o.payment_status=='verification_pending' %}status-processing{% else %}status-pending{% endif %}">{{ o.payment_status.replace('_',' ')|title }}</span>

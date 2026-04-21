@@ -10,7 +10,11 @@
     <div class="order-block-header">
       <div class="ob-info">
         <strong>#{{ o.id }} — {{ o.customer_name }}</strong>
+        {% if o.items and o.items|length > 0 %}
+        <span>{{ o.items|length }} item(s){% if o.items[0].product %} · {{ o.items[0].product.name }}{% endif %}{% if o.items|length > 1 %} + more{% endif %}</span>
+        {% else %}
         <span>{{ o.product.name }} × {{ o.quantity }}</span>
+        {% endif %}
         <span class="price-tag">₹{{ "%.2f"|format(o.total_price) }}</span>
       </div>
       <div class="ob-badges">
@@ -24,6 +28,14 @@
       <small class="ob-date">📍 {{ o.customer_address }}</small>
     </div>
     <div class="order-block-body">
+      {% if o.items and o.items|length > 0 %}
+      <div class="ob-items" style="margin-bottom:10px;color:var(--muted);font-size:.82rem">
+        <strong style="color:var(--dark)">Items:</strong>
+        {% for it in o.items %}
+          <span style="display:inline-block;margin-right:8px">{{ it.product.name if it.product else ('Product #' ~ it.product_id) }} × {{ it.quantity }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
       <form method="POST" action="{{ url_for('admin_update_order', oid=o.id) }}" class="ob-form">
         <div class="ob-form-row">
           <div class="form-group"><label>Order Status</label>

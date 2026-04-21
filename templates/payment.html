@@ -8,14 +8,25 @@
     <div class="payment-header">
       <div class="payment-icon">💳</div>
       <h1>Complete Your Payment</h1>
-      <p>Order #{{ order.id }} — {{ order.product.name }}</p>
+      <p>
+        Order #{{ order.id }}
+        {% if order.items and order.items|length > 0 %}
+          — {{ order.items|length }} item(s)
+        {% else %}
+          — {{ order.product.name }}
+        {% endif %}
+      </p>
     </div>
 
     <!-- Amount -->
     <div class="payment-amount-box">
       <span class="payment-label">Total Amount</span>
       <span class="payment-amount">₹{{ "%.2f"|format(order.total_price) }}</span>
+      {% if order.items and order.items|length > 0 %}
+      <span class="payment-sub">Pay for all items in your order</span>
+      {% else %}
       <span class="payment-sub">{{ order.quantity }} × {{ order.product.name }}</span>
+      {% endif %}
     </div>
 
     <!-- UPI Options -->
@@ -83,8 +94,12 @@
     <div class="payment-summary">
       <div class="detail-row"><span>Customer</span><strong>{{ order.customer_name }}</strong></div>
       <div class="detail-row"><span>Phone</span><strong>{{ order.customer_phone }}</strong></div>
+      {% if order.items and order.items|length > 0 %}
+      <div class="detail-row"><span>Items</span><strong>{{ order.items|length }}</strong></div>
+      {% else %}
       <div class="detail-row"><span>Product</span><strong>{{ order.product.name }}</strong></div>
       <div class="detail-row"><span>Quantity</span><strong>{{ order.quantity }}</strong></div>
+      {% endif %}
       <div class="detail-row total-row"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_price) }}</strong></div>
     </div>
 

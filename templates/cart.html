@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Cart — Nails on Board{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <h1>Your Cart</h1>
+  <p>Review items and checkout when ready</p>
+</section>
+
+<section class="cart-section">
+  <div class="cart-card">
+    {% if rows %}
+    <form method="POST" action="{{ url_for('cart_update') }}" class="cart-form">
+      <div class="cart-rows">
+        {% for r in rows %}
+        <div class="cart-row">
+          <div class="cart-row-left">
+            {% set img_url = get_image_url(r.product) %}
+            {% if img_url %}
+            <img src="{{ img_url }}" alt="{{ r.product.name }}" class="cart-img"/>
+            {% else %}
+            <div class="cart-img ph">💅</div>
+            {% endif %}
+            <div class="cart-meta">
+              <a class="cart-name" href="{{ url_for('product_detail', pid=r.product.id) }}">{{ r.product.name }}</a>
+              <div class="cart-sub">₹{{ "%.2f"|format(r.product.price) }} each</div>
+            </div>
+          </div>
+          <div class="cart-row-right">
+            <input class="cart-qty" type="number" min="1" max="99" name="qty_{{ r.product.id }}" value="{{ r.quantity }}" />
+            <div class="cart-line">₹{{ "%.2f"|format(r.line_total) }}</div>
+            <button type="submit"
+                    formaction="{{ url_for('cart_remove', pid=r.product.id) }}"
+                    formmethod="POST"
+                    class="btn btn-sm btn-outline">Remove</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="cart-footer">
+        <div class="cart-total">
+          <span>Total</span>
+          <strong>₹{{ "%.2f"|format(total) }}</strong>
+        </div>
+        <div class="cart-actions">
+          <button type="submit" class="btn btn-outline">Update Cart</button>
+          <a href="{{ url_for('checkout') }}" class="btn btn-primary">Checkout</a>
+        </div>
+      </div>
+    </form>
+
+    <form method="POST" action="{{ url_for('cart_clear') }}" class="cart-clear">
+      <button type="submit" class="btn btn-sm btn-outline">Clear cart</button>
+    </form>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">🛒</div>
+      <h3>Your cart is empty</h3>
+      <p>Add products from the shop to checkout together.</p>
+      <a href="{{ url_for('shop') }}" class="btn btn-primary">Go to Shop</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+

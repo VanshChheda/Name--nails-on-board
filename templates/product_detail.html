@@ -24,7 +24,14 @@
         {% if product.in_stock %}✓ In Stock{% else %}✗ Out of Stock{% endif %}
       </div>
       {% if product.in_stock %}
-      <a href="{{ url_for('place_order', pid=product.id) }}" class="btn btn-primary btn-lg">Order Now</a>
+      <form method="POST" action="{{ url_for('cart_add', pid=product.id) }}" class="pd-cart-row">
+        <div class="pd-qty">
+          <label>Qty</label>
+          <input type="number" name="quantity" min="1" max="20" value="1" required/>
+        </div>
+        <button type="submit" class="btn btn-outline btn-lg">Add to Cart</button>
+        <a href="{{ url_for('place_order', pid=product.id) }}" class="btn btn-primary btn-lg">Buy Now</a>
+      </form>
       {% endif %}
       <a href="{{ url_for('appointment') }}" class="btn btn-outline">Book Appointment Instead</a>
     </div>
@@ -51,7 +58,13 @@
         <h3>{{ p.name }}</h3>
         <div class="product-footer">
           <span class="price">₹{{ "%.2f"|format(p.price) }}</span>
-          <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Order</a>
+          <div class="product-actions">
+            <form method="POST" action="{{ url_for('cart_add', pid=p.id) }}" style="display:inline">
+              <input type="hidden" name="quantity" value="1"/>
+              <button type="submit" class="btn btn-sm btn-outline">Add</button>
+            </form>
+            <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Buy</a>
+          </div>
         </div>
       </div>
     </div>

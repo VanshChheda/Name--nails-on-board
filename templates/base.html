@@ -16,6 +16,7 @@
       <li><a href="{{ url_for('shop') }}">Shop</a></li>
       <li><a href="{{ url_for('gallery') }}">Gallery</a></li>
       <li><a href="{{ url_for('appointment') }}">Book</a></li>
+      <li><a href="{{ url_for('cart_page') }}">Cart{% if cart_count() %} ({{ cart_count() }}){% endif %}</a></li>
       {% if session.get('customer_logged_in') %}
       <li><a href="{{ url_for('customer_dashboard') }}" class="nav-account">👤 My Account</a></li>
       <li><a href="{{ url_for('customer_logout') }}" class="nav-logout">Logout</a></li>
@@ -33,6 +34,7 @@
     <a href="{{ url_for('index') }}">🏠 Home</a>
     <a href="{{ url_for('shop') }}">🛍️ Shop</a>
     <a href="{{ url_for('gallery') }}">🖼️ Gallery</a>
+    <a href="{{ url_for('cart_page') }}">🛒 Cart{% if cart_count() %} ({{ cart_count() }}){% endif %}</a>
     <a href="{{ url_for('appointment') }}">📅 Book Appointment</a>
     {% if session.get('customer_logged_in') %}
     <a href="{{ url_for('customer_dashboard') }}">👤 My Account</a>

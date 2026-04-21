@@ -34,7 +34,7 @@ Open `app.py` and fill in these 3 lines:
 ```python
 EMAIL_SENDER   = 'your_actual_email@gmail.com'
 EMAIL_PASSWORD = 'xxxx xxxx xxxx xxxx'   # App Password (16 chars)
-ADMIN_EMAIL    = 'your_actual_email@gmail.com'
+ADMIN_EMAIL    = 'nailsonboard5@gmail.com'
 ```
 
 ### How to get Gmail App Password (one-time, 2 minutes):
@@ -49,7 +49,7 @@ ADMIN_EMAIL    = 'your_actual_email@gmail.com'
 ## 💳 UPI Setup
 
 ```python
-UPI_ID   = 'yourname@paytm'   # or @ybl / @okaxis / @upi
+UPI_ID   = 'kavyachheda0510@okaxis'   # or @ybl / @paytm / @upi
 UPI_NAME = 'Nails on Board'
 ```
 
