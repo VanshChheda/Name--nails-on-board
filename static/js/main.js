@@ -2,6 +2,7 @@
 
 // ── Dark mode ──
 (function(){
+  document.body.classList.add('page-ready');
   const t = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', t);
   const btn = document.getElementById('darkToggle');
@@ -37,6 +38,21 @@ document.querySelectorAll('.flash').forEach(el => {
   setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),400); }, 5000);
 });
 
+document.querySelectorAll('a[href]').forEach(link => {
+  link.addEventListener('click', e => {
+    const href = link.getAttribute('href');
+    if(!href || href.startsWith('#')) return;
+    if(link.target === '_blank' || link.hasAttribute('download')) return;
+    try{
+      const url = new URL(link.href, window.location.href);
+      if(url.origin !== window.location.origin) return;
+      e.preventDefault();
+      document.body.classList.add('page-leaving');
+      setTimeout(() => { window.location.href = url.href; }, 220);
+    }catch(_err){}
+  });
+});
+
 // ── Scroll-in animation ──
 if('IntersectionObserver' in window){
   const io = new IntersectionObserver(entries => {
@@ -49,6 +65,26 @@ if('IntersectionObserver' in window){
     io.observe(el);
   });
 }
+
+document.querySelectorAll('.premium-card,.hero-photo-frame,.product-img-zoom-link').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    if(window.matchMedia('(max-width: 900px)').matches) return;
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -10;
+    card.style.transform = `perspective(1200px) rotateX(${y}deg) rotateY(${x}deg) translateY(-4px)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+  });
+});
+
+document.querySelectorAll('.product-buy-trigger').forEach(trigger => {
+  trigger.addEventListener('click', () => {
+    trigger.classList.add('buy-active');
+    setTimeout(() => trigger.classList.remove('buy-active'), 500);
+  });
+});
 
 // ── Min date on appointment ──
 const di = document.querySelector('input[type=date]');

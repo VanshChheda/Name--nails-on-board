@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ product.name }} — Nails on Board{% endblock %}
 {% block content %}
-<section class="product-detail-section">
+<section class="product-detail-section product-detail-premium">
   <div class="product-detail-grid">
     <div class="product-detail-img">
       {% set img_url = get_image_url(product) %}
@@ -20,6 +20,11 @@
       <h1>{{ product.name }}</h1>
       <div class="price-large">₹{{ "%.2f"|format(product.price) }}</div>
       <p class="product-full-desc">{{ product.description }}</p>
+      <div class="product-luxury-points">
+        <span>Gloss-layer finish</span>
+        <span>Curated premium look</span>
+        <span>Salon-inspired styling</span>
+      </div>
       <div class="stock-badge {% if product.in_stock %}in-stock{% else %}out-stock{% endif %}">
         {% if product.in_stock %}✓ In Stock{% else %}✗ Out of Stock{% endif %}
       </div>
@@ -29,11 +34,11 @@
           <label>Qty</label>
           <input type="number" name="quantity" min="1" max="20" value="1" required/>
         </div>
-        <button type="submit" class="btn btn-outline btn-lg">Add to Cart</button>
-        <a href="{{ url_for('place_order', pid=product.id) }}" class="btn btn-primary btn-lg">Buy Now</a>
+        <button type="submit" class="btn btn-outline btn-lg product-buy-trigger">Add to Cart</button>
+        <a href="{{ url_for('place_order', pid=product.id) }}" class="btn btn-primary btn-lg product-buy-trigger" data-premium-link>Buy Now</a>
       </form>
       {% endif %}
-      <a href="{{ url_for('appointment') }}" class="btn btn-outline">Book Appointment Instead</a>
+      <a href="{{ url_for('appointment') }}" class="btn btn-outline" data-premium-link>Book Appointment Instead</a>
     </div>
   </div>
 </section>
@@ -43,8 +48,8 @@
   <h2>You May Also Like</h2>
   <div class="products-grid">
     {% for p in related %}
-    <div class="product-card">
-      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
+    <div class="product-card premium-card">
+      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap product-visual-link" data-premium-link>
         {% set img_url = get_image_url(p) %}
         {% if img_url %}
         <img src="{{ img_url }}" alt="{{ p.name }}" loading="lazy"/>
@@ -61,9 +66,9 @@
           <div class="product-actions">
             <form method="POST" action="{{ url_for('cart_add', pid=p.id) }}" style="display:inline">
               <input type="hidden" name="quantity" value="1"/>
-              <button type="submit" class="btn btn-sm btn-outline">Add</button>
+              <button type="submit" class="btn btn-sm btn-outline product-buy-trigger">Add</button>
             </form>
-            <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm">Buy</a>
+            <a href="{{ url_for('place_order', pid=p.id) }}" class="btn btn-sm product-buy-trigger" data-premium-link>Buy</a>
           </div>
         </div>
       </div>
