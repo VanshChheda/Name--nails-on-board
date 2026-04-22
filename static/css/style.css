@@ -506,3 +506,63 @@ img{max-width:100%;height:auto;display:block}
 .ci-qty{color:var(--text-muted)}
 .ci-total{font-weight:800;color:var(--deep-rose);text-align:right}
 .checkout-grand{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border);padding-top:10px;margin-top:8px}
+
+@media(max-width:768px){
+  .nav-container{padding:12px 16px}
+  .logo{font-size:1.2rem}
+  .page-hero{padding:32px 16px 24px}
+  .products-grid,
+  .shop-section,
+  .product-detail-section,
+  .gallery-section,
+  .track-section,
+  .cart-section,
+  .payment-section,
+  .form-section{padding-left:16px;padding-right:16px}
+  .product-actions,
+  .pd-cart-row{flex-direction:column;align-items:stretch}
+  .product-actions > *,
+  .pd-cart-row > *,
+  .pd-cart-row .btn,
+  .pd-cart-row .pd-qty{width:100%}
+  .pd-qty input,
+  .cart-qty,
+  .track-input-row input,
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .utr-form input{font-size:16px}
+  .cart-row{flex-direction:column;align-items:stretch}
+  .cart-row-left{min-width:0;align-items:flex-start}
+  .cart-row-right{justify-content:stretch}
+  .cart-row-right > *{width:100%}
+  .cart-line{text-align:left;min-width:0}
+  .cart-actions,
+  .confirmation-actions{flex-direction:column}
+  .cart-actions > *,
+  .confirmation-actions > *{width:100%}
+  .cart-clear{text-align:stretch}
+  .cart-clear button{width:100%}
+  .checkout-item{grid-template-columns:1fr auto;align-items:start}
+  .ci-total{grid-column:1 / -1;text-align:left}
+  .track-input-row{flex-direction:column}
+  .track-input-row .btn{width:100%}
+  .tc-row{flex-direction:column;align-items:flex-start}
+  .tc-row span{margin-bottom:2px}
+  .qr-container{flex-direction:column;align-items:stretch}
+  .qr-wrap{display:flex;flex-direction:column;align-items:center}
+  .upi-id-row{align-items:flex-start}
+}
+
+@media(max-width:480px){
+  .nav-container{gap:8px}
+  .dark-toggle,
+  .nav-toggle{min-width:44px;min-height:44px}
+  .section-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .products-grid{grid-template-columns:1fr}
+  .product-card{max-width:none}
+  .track-card,
+  .cart-card,
+  .form-card,
+  .payment-card{border-radius:16px}
+}

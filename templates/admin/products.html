@@ -4,7 +4,7 @@
 {% block content %}
 <div class="panel-header mb-4">
   <h2>All Products ({{ products|length }})</h2>
-  <a href="{{ url_for('admin_add_product') }}" style="background:#c4687a;color:#ffffff;padding:11px 22px;border-radius:8px;font-family:Jost,sans-serif;font-size:.88rem;font-weight:600;text-decoration:none;display:inline-block">+ Add Product</a>
+  <a href="{{ url_for('admin_add_product') }}" class="btn-admin">+ Add Product</a>
 </div>
 
 {% if products %}

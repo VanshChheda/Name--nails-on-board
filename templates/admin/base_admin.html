@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
   <title>{% block title %}Admin — Nails on Board{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}"/>
 </head>
 <body class="admin-body">
+<button class="admin-mobile-toggle" id="adminMobileToggle" type="button" aria-label="Toggle admin menu" aria-expanded="false">Menu</button>
+<div class="admin-mobile-backdrop" id="adminMobileBackdrop"></div>
 <aside class="admin-sidebar">
   <div class="admin-brand"><span>✦</span> Nails on Board<small>Admin Panel</small></div>
   <nav class="admin-nav">
@@ -40,6 +42,15 @@ function toggleAdminDark(){const h=document.documentElement;const t=h.getAttribu
 (function(){const t=localStorage.getItem('adminTheme')||'light';document.documentElement.setAttribute('data-theme',t);})();
 async function updateNotifCount(){try{const r=await fetch('/admin/notifications/count');const d=await r.json();const b=document.getElementById('notifCount');if(d.count>0){b.textContent=d.count;b.style.display='inline';}else b.style.display='none';}catch(e){}}
 updateNotifCount();setInterval(updateNotifCount,30000);
+const adminSidebar=document.querySelector('.admin-sidebar');
+const adminMobileToggle=document.getElementById('adminMobileToggle');
+const adminMobileBackdrop=document.getElementById('adminMobileBackdrop');
+function closeAdminMenu(){adminSidebar?.classList.remove('open');adminMobileBackdrop?.classList.remove('open');adminMobileToggle?.setAttribute('aria-expanded','false');}
+function toggleAdminMenu(){const open=adminSidebar?.classList.toggle('open');adminMobileBackdrop?.classList.toggle('open',!!open);adminMobileToggle?.setAttribute('aria-expanded',open?'true':'false');}
+adminMobileToggle?.addEventListener('click',toggleAdminMenu);
+adminMobileBackdrop?.addEventListener('click',closeAdminMenu);
+document.querySelectorAll('.admin-nav a').forEach(a=>a.addEventListener('click',()=>{if(window.innerWidth<=900)closeAdminMenu();}));
+window.addEventListener('resize',()=>{if(window.innerWidth>900)closeAdminMenu();});
 </script>
 </body>
 </html>

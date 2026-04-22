@@ -16,7 +16,9 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
 body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(--dark); }
+input, textarea, select, button { font: inherit; }
 
 /* ── Login ── */
 .admin-login-body {
@@ -57,10 +59,13 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
 
 /* ── Sidebar ── */
 .admin-body { display: flex; min-height: 100vh; }
+.admin-mobile-toggle,
+.admin-mobile-backdrop { display: none; }
 .admin-sidebar {
   width: var(--sidebar-w); background: var(--dark); flex-shrink: 0;
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
   overflow-y: auto;
+  transition: transform 0.25s ease;
 }
 .admin-brand {
   padding: 28px 24px 24px;
@@ -93,9 +98,10 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
   display: flex; justify-content: space-between; align-items: center;
   border-bottom: 1px solid rgba(232,160,168,0.2);
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  gap: 14px;
 }
 .admin-page-title { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; font-weight: 400; color: var(--dark); }
-.admin-user { font-size: 0.88rem; color: var(--muted); }
+.admin-user { font-size: 0.88rem; color: var(--muted); text-align: right; }
 .admin-content { padding: 28px 32px; overflow-y: auto; }
 
 /* ── Flash ── */
@@ -221,6 +227,7 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
 .checkbox-group label { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
 .checkbox-group input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--deep-rose); }
 .form-actions { display: flex; gap: 12px; align-items: center; width: 100%; }
+.form-actions > * { min-height: 44px; }
 .current-image { width: 100%; margin-bottom: 4px; }
 .current-image label { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .current-image img { width: 160px; height: 160px; object-fit: cover; border-radius: 12px; box-shadow: var(--shadow); }
@@ -254,10 +261,108 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .admin-two-col { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
+  .admin-mobile-toggle {
+    display: inline-flex;
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 1200;
+    min-height: 48px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: var(--deep-rose);
+    color: var(--white);
+    font-weight: 700;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  }
+  .admin-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 10, 22, 0.48);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1090;
+  }
+  .admin-mobile-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(82vw, 320px);
+    height: 100vh;
+    z-index: 1100;
+    transform: translateX(-100%);
+  }
+  .admin-sidebar.open { transform: translateX(0); }
+  .admin-main { min-width: 0; }
+  .admin-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 16px 18px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .admin-page-title { font-size: 1.45rem; }
+  .admin-content,
+  .flash-messages { padding-left: 18px; padding-right: 18px; }
+  .admin-panel,
+  .quick-actions,
+  .admin-form-card { border-radius: 16px; }
+  .admin-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-table { min-width: 640px; }
+  .admin-products-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .apc-actions { flex-direction: column; }
+  .apc-actions > * { width: 100%; }
+  .apc-actions .btn-edit,
+  .apc-actions .btn-delete,
+  .apc-actions form button { width: 100%; text-align: center; }
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .mini-select,
+  .sms-input,
+  .login-card input { font-size: 16px; }
+  .file-input {
+    font-size: 16px;
+    min-height: 46px;
+    width: 100%;
+  }
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    margin-top: 8px;
+    padding-top: 12px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--white) 70%, rgba(255,255,255,0));
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .form-actions .btn-cancel,
+  .form-actions button,
+  .form-actions .btn-admin { width: 100%; }
+  .qa-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 600px) {
-  .admin-sidebar { display: none; }
-  .admin-content { padding: 16px; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .admin-content { padding: 14px; }
+  .admin-user { width: 100%; text-align: left; }
+  .quick-actions,
+  .admin-panel,
+  .admin-form-card { padding: 18px; }
+  .qa-grid { grid-template-columns: 1fr; }
+  .admin-products-grid { grid-template-columns: 1fr; }
+  .current-image img { width: 100%; height: auto; max-width: 260px; }
 }
 
 /* ── Config Banners ── */
@@ -348,6 +453,8 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
 [data-theme="dark"] .qa-btn              { background:#2d1b4e; color:#c084fc; }
 [data-theme="dark"] .qa-btn:hover        { background:#a855f7; color:#fff; }
 [data-theme="dark"] .btn-admin-login     { background:#a855f7; color:#fff; }
+[data-theme="dark"] .admin-mobile-toggle { background:#a855f7; color:#fff; }
+[data-theme="dark"] .admin-mobile-backdrop { background:rgba(5, 3, 8, 0.6); }
 
 /* Table */
 [data-theme="dark"] .admin-table thead tr  { background:#0f0a1a; }
@@ -371,6 +478,9 @@ body { font-family: 'Jost', sans-serif; background: var(--admin-bg); color: var(
 
 /* Current image label */
 [data-theme="dark"] .current-image label  { color:#9a7ab5; }
+[data-theme="dark"] .form-actions {
+  background: linear-gradient(to top, #1a1030 70%, rgba(26,16,48,0));
+}
 
 /* Config banners */
 [data-theme="dark"] .config-banner.banner-ok   { background:#052e16; color:#86efac; border-color:#166534; }
