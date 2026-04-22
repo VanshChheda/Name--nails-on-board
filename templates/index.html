@@ -1,17 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Nails on Board — Premium Nail Art{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero hero-premium">
   <div class="hero-content">
     <p class="hero-eyebrow">✦ Premium Nail Art Studio</p>
     <h1 class="hero-title">Beauty at<br><em>Your Fingertips</em></h1>
     <p class="hero-sub">Handcrafted nail art, professional services, and premium nail products.</p>
+    <div class="hero-badges">
+      <span>Luxury Sets</span>
+      <span>Studio Finish</span>
+      <span>Curated Looks</span>
+    </div>
     <div class="hero-cta-group">
-      <a href="{{ url_for('shop') }}" class="btn btn-primary">Shop Now</a>
-      <a href="{{ url_for('appointment') }}" class="btn btn-outline">Book Appointment</a>
+      <a href="{{ url_for('shop') }}" class="btn btn-primary" data-premium-link>Shop Now</a>
+      <a href="{{ url_for('appointment') }}" class="btn btn-outline" data-premium-link>Book Appointment</a>
+    </div>
+    <div class="hero-note">
+      <strong>Studio-grade polish, boutique presentation.</strong>
+      <span>Designed to feel premium before the order is even placed.</span>
     </div>
   </div>
   <div class="hero-visual">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
     <div class="hero-ring hero-ring-1"></div>
     <div class="hero-ring hero-ring-2"></div>
     <div class="hero-photo-frame">
@@ -34,6 +45,10 @@
       </div>
       {% endif %}
     </div>
+    <div class="hero-glass-card">
+      <span>Signature Finish</span>
+      <strong>Premium salon visuals with a polished storefront flow.</strong>
+    </div>
   </div>
 </section>
 
@@ -48,8 +63,8 @@
   <div class="section-header"><h2>Featured Products</h2><a href="{{ url_for('shop') }}" class="see-all">See All →</a></div>
   <div class="products-grid">
     {% for p in products[:8] %}
-    <div class="product-card">
-      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap">
+    <div class="product-card premium-card">
+      <a href="{{ url_for('product_detail', pid=p.id) }}" class="product-img-wrap product-visual-link" data-premium-link>
         {% if p.image_filename %}{% set img_url = get_image_url(p) %}
       {% if img_url %}<img src="{{ img_url }}" alt="{{ p.name }}" loading="lazy"/>{% endif %}
         {% else %}<div class="product-img-placeholder">💅</div>{% endif %}
