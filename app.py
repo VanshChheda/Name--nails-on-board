@@ -61,10 +61,13 @@ CLOUDINARY_ENABLED = init_cloudinary()
 # ══════════════════════════════════════════════════════════════
 #  EMAIL — Free Gmail SMTP
 # ══════════════════════════════════════════════════════════════
-EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'nailsonboard5@gmail.com')
-EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'htfh qyam fuvo rquy')
+EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', '').strip()
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', '').strip()
 EMAIL_NAME     = 'Nails on Board'
-ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'nailsonboard5@gmail.com')
+ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'nailsonboard5@gmail.com').strip().lower()
+MAIL_REPLY_TO  = os.environ.get('MAIL_REPLY_TO', ADMIN_EMAIL or EMAIL_SENDER).strip()
+SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', EMAIL_SENDER).strip()
+SENDGRID_FROM_NAME  = os.environ.get('SENDGRID_FROM_NAME', EMAIL_NAME).strip() or EMAIL_NAME
 
 # ══════════════════════════════════════════════════════════════
 #  UPI PAYMENT
@@ -179,12 +182,17 @@ def ensure_db_ready():
     try:
         with app.app_context():
             db.create_all()
-            if not Admin.query.first():
-                db.session.add(Admin(
+            admin = Admin.query.first()
+            if not admin:
+                admin = Admin(
                     username='KavyaChheda0510',
                     password_hash=generate_password_hash('KRC@2004'),
                     email=ADMIN_EMAIL
-                ))
+                )
+                db.session.add(admin)
+                db.session.commit()
+            elif ADMIN_EMAIL and admin.email != ADMIN_EMAIL:
+                admin.email = ADMIN_EMAIL
                 db.session.commit()
     except Exception as e:
         print(f"[DB INIT ERROR] {e}")
@@ -212,6 +220,12 @@ def set_setting(key, value):
     except Exception as e:
         db.session.rollback()
         print(f"[SETTING ERROR] {e}")
+
+def email_is_configured():
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').strip()
+    if sendgrid_key and SENDGRID_FROM_EMAIL:
+        return True
+    return bool(EMAIL_SENDER and EMAIL_PASSWORD)
 
 DEFAULT_SERVICES   = ['Gel Nails','Acrylic Extension','Nail Art','Manicure','Pedicure','Nail Jewels','Custom Design']
 DEFAULT_TIME_SLOTS = ['10:00 AM','11:00 AM','12:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM']
@@ -280,10 +294,11 @@ app.jinja_env.globals['get_image_url'] = get_image_url
 def _send_thread(to, subject, body):
     """Send via SendGrid API with anti-spam headers."""
     try:
-        sendgrid_key = os.environ.get('SENDGRID_API_KEY', '')
+        sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').strip()
         sender = EMAIL_SENDER
         password = EMAIL_PASSWORD
-        if sendgrid_key and sendgrid_key not in ('', 'your_sendgrid_key'):
+        reply_to = MAIL_REPLY_TO or ADMIN_EMAIL or sender
+        if sendgrid_key and SENDGRID_FROM_EMAIL and sendgrid_key not in ('', 'your_sendgrid_key'):
             import urllib.request as _ur
             import json as _j
             # Add plain text version to avoid spam filters
@@ -291,8 +306,8 @@ def _send_thread(to, subject, body):
             plain_text = _re.sub('<[^>]+>', '', body).strip()
             payload = _j.dumps({
                 'personalizations': [{'to': [{'email': to}]}],
-                'from': {'email': sender, 'name': EMAIL_NAME},
-                'reply_to': {'email': sender, 'name': EMAIL_NAME},
+                'from': {'email': SENDGRID_FROM_EMAIL, 'name': SENDGRID_FROM_NAME},
+                'reply_to': {'email': reply_to, 'name': EMAIL_NAME},
                 'subject': subject,
                 'content': [
                     {'type': 'text/plain', 'value': plain_text},
@@ -317,7 +332,7 @@ def _send_thread(to, subject, body):
             )
             with _ur.urlopen(req, timeout=15) as r:
                 print(f"[EMAIL OK ✅ SendGrid] {to} | status={r.status}")
-        elif 'your_gmail' not in sender and 'xxxx' not in password:
+        elif sender and password:
             import re as _re
             plain_text = _re.sub('<[^>]+>', '', body).strip()
 
@@ -325,10 +340,12 @@ def _send_thread(to, subject, body):
             msg['Subject'] = subject
             msg['From'] = f'{EMAIL_NAME} <{sender}>'
             msg['To'] = to
-            msg['Reply-To'] = f'{EMAIL_NAME} <{sender}>'
+            msg['Reply-To'] = f'{EMAIL_NAME} <{reply_to}>'
             msg['Date'] = formatdate(localtime=False)
             msg['Message-ID'] = make_msgid(domain=sender.split('@')[-1] if '@' in sender else None)
             msg['X-Mailer'] = 'Nails on Board'
+            msg['X-Auto-Response-Suppress'] = 'All'
+            msg['List-ID'] = 'Nails on Board <orders.nailsonboard>'
             msg.set_content(plain_text or 'Hello from Nails on Board.')
             msg.add_alternative(body, subtype='html')
             with smtplib.SMTP('smtp.gmail.com', 587, timeout=20) as s:
@@ -336,7 +353,7 @@ def _send_thread(to, subject, body):
                 s.send_message(msg)
             print(f"[EMAIL OK ✅ Gmail] {to}")
         else:
-            print(f"[EMAIL SKIPPED] Configure SENDGRID_API_KEY. To:{to}")
+            print(f"[EMAIL SKIPPED] Configure email environment variables. To:{to}")
     except Exception as e:
         print(f"[EMAIL ERROR ❌] {type(e).__name__}: {e}")
 
@@ -750,7 +767,16 @@ def place_order(pid):
             total_price=product.price * qty,
             status='pending_payment', payment_status='unpaid'
         )
-        db.session.add(o); db.session.commit()
+        db.session.add(o)
+        db.session.flush()
+        db.session.add(OrderItem(
+            order_id=o.id,
+            product_id=pid,
+            quantity=qty,
+            unit_price=float(product.price),
+            line_total=float(product.price) * qty
+        ))
+        db.session.commit()
         add_notif(f"🛍️ New order #{o.id} from {o.customer_name} — {product.name} ×{qty} | ₹{o.total_price:.0f}", 'order', 'admin')
         add_notif(f"Order #{o.id} placed for {product.name} ×{qty}. Please complete UPI payment.", 'order', 'customer', o.customer_email)
         send_email(o.customer_email, f"Order #{o.id} Placed — Nails on Board", email_html(
@@ -898,7 +924,7 @@ def admin_logout():
 @app.route('/admin/')
 @admin_required
 def admin_dashboard():
-    email_ok = 'your_gmail' not in EMAIL_SENDER
+    email_ok = email_is_configured()
     cloud_ok = CLOUDINARY_ENABLED
     return render_template('admin/dashboard.html',
         total_products=NailProduct.query.count(),
@@ -1121,11 +1147,15 @@ def admin_upload_hero():
 def init_db():
     with app.app_context():
         db.create_all()
-        if not Admin.query.first():
+        admin = Admin.query.first()
+        if not admin:
             db.session.add(Admin(
                 username='KavyaChheda0510',
                 password_hash=generate_password_hash('KRC@2004'),
                 email=ADMIN_EMAIL))
+            db.session.commit()
+        elif ADMIN_EMAIL and admin.email != ADMIN_EMAIL:
+            admin.email = ADMIN_EMAIL
             db.session.commit()
             print("✅ Admin created: KavyaChheda0510 / KRC@2004")
         print(f"✅ Database ready")
@@ -1133,7 +1163,7 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-    email_ok = 'your_gmail' not in EMAIL_SENDER
+    email_ok = email_is_configured()
     print(f"\n🌸 Nails on Board running!")
     print(f"   http://127.0.0.1:5000")
     print(f"   Admin: KavyaChheda0510 / KRC@2004")

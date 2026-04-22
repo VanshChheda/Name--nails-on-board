@@ -34,11 +34,18 @@
     <div class="panel-header"><h2>Recent Orders</h2><a href="{{ url_for('admin_orders') }}">View All →</a></div>
     {% if recent_orders %}
     <table class="admin-table">
-      <thead><tr><th>#</th><th>Customer</th><th>Product</th><th>Total</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Customer</th><th>Order</th><th>Total</th><th>Status</th></tr></thead>
       <tbody>
         {% for o in recent_orders %}
         <tr>
-          <td>#{{ o.id }}</td><td>{{ o.customer_name }}</td><td>{{ o.product.name }}</td>
+          <td>#{{ o.id }}</td><td>{{ o.customer_name }}</td>
+          <td>
+            {% if o.items and o.items|length > 0 %}
+              {{ o.items|length }} item(s){% if o.items[0].product %} · {{ o.items[0].product.name }}{% endif %}{% if o.items|length > 1 %} + more{% endif %}
+            {% else %}
+              {{ o.product.name }}
+            {% endif %}
+          </td>
           <td>₹{{ "%.0f"|format(o.total_price) }}</td>
           <td><span class="status-badge status-{{ o.status.replace('_','-') }}">{{ o.status.replace('_',' ')|title }}</span></td>
         </tr>
