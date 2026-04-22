@@ -61,8 +61,8 @@ CLOUDINARY_ENABLED = init_cloudinary()
 # ══════════════════════════════════════════════════════════════
 #  EMAIL — Free Gmail SMTP
 # ══════════════════════════════════════════════════════════════
-EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'your_gmail@gmail.com')
-EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'xxxx xxxx xxxx xxxx')
+EMAIL_SENDER   = os.environ.get('EMAIL_SENDER', 'nailsonboard5@gmail.com')
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'htfh qyam fuvo rquy')
 EMAIL_NAME     = 'Nails on Board'
 ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'nailsonboard5@gmail.com')
 
