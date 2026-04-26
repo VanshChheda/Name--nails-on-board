@@ -38,11 +38,10 @@
   </div>
 </section>
 <script>
-// Set min date and block unavailable dates
 const blockedDates = {{ blocked_dates | tojson }};
 const dateInput = document.getElementById('apptDate');
 if(dateInput){
-  const today = new Date().toISOString().split('T')[0];
+  const today = '{{ min_date }}';
   dateInput.min = today;
   dateInput.addEventListener('change', function(){
     if(blockedDates.includes(this.value)){

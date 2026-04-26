@@ -14,11 +14,14 @@
     </div>
     <div class="notif-body">
       <p>{{ n.message }}</p>
-      <small>{{ n.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+      <small>{{ fmt_ist(n.created_at) }}</small>
     </div>
     <div class="notif-badge {% if n.is_read %}read{% else %}unread{% endif %}">
       {% if n.is_read %}Read{% else %}New{% endif %}
     </div>
+    <form method="POST" action="{{ url_for('admin_delete_notification', nid=n.id) }}" onsubmit="return confirm('Delete this notification?')">
+      <button type="submit" class="btn-delete">Delete</button>
+    </form>
   </div>
   {% endfor %}
 </div>

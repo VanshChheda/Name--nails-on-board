@@ -15,7 +15,7 @@
       </div>
       <div class="notif-body">
         <p>{{ n.message }}</p>
-        <small>{{ n.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+        <small>{{ fmt_ist(n.created_at) }}</small>
       </div>
     </div>
     {% endfor %}

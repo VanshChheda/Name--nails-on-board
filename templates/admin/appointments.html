@@ -16,7 +16,7 @@
       <div class="ob-badges">
         <span class="status-badge status-{{ a.status }}">{{ a.status|title }}</span>
       </div>
-      <small class="ob-date">{{ a.created_at.strftime('%d %b %Y, %I:%M %p') }} · 📞 {{ a.customer_phone }} · 📧 {{ a.customer_email }}</small>
+      <small class="ob-date">{{ fmt_ist(a.created_at) }} · 📞 {{ a.customer_phone }} · 📧 {{ a.customer_email }}</small>
       {% if a.notes %}<small class="ob-date">📝 {{ a.notes }}</small>{% endif %}
     </div>
     <div class="order-block-body">
@@ -36,6 +36,11 @@
         <div class="ob-form-row">
           <input type="text" name="custom_msg" placeholder="Custom email to customer (blank = reminder)" class="sms-input" />
           <button type="submit" class="btn-sms">📧 Send Email</button>
+        </div>
+      </form>
+      <form method="POST" action="{{ url_for('admin_delete_appointment', aid=a.id) }}" class="ob-sms-form" onsubmit="return confirm('Delete this appointment from admin history?')">
+        <div class="ob-form-row">
+          <button type="submit" class="btn-delete">Delete Appointment</button>
         </div>
       </form>
     </div>

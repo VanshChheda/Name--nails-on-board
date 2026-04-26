@@ -79,9 +79,24 @@ UPI_DESCRIPTION = 'Payment to Nails on Board'
 db = SQLAlchemy(app)
 
 # ─── IST helpers ──────────────────────────────────────────────
+def utc_now():
+    return datetime.now(IST).astimezone(timezone.utc).replace(tzinfo=None)
+
 def fmt_ist(dt):
-    if dt is None: return ''
-    return dt.replace(tzinfo=timezone.utc).astimezone(IST).strftime('%d %b %Y, %I:%M %p IST')
+    if dt is None:
+        return ''
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST).strftime('%d %b %Y, %I:%M %p IST')
+
+def today_ist_date():
+    return datetime.now(IST).strftime('%Y-%m-%d')
+
+def fmt_ist_date(date_str):
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').strftime('%d %b %Y')
+    except Exception:
+        return date_str
 
 app.jinja_env.globals['fmt_ist'] = fmt_ist
 
@@ -99,7 +114,7 @@ class Customer(db.Model):
     email         = db.Column(db.String(120), unique=True, nullable=False)
     phone         = db.Column(db.String(20), nullable=True)
     password_hash = db.Column(db.String(200), nullable=False)
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at    = db.Column(db.DateTime, default=utc_now)
 
 class NailProduct(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
@@ -110,7 +125,7 @@ class NailProduct(db.Model):
     image_filename = db.Column(db.String(500), nullable=True)  # stores Cloudinary URL or filename
     image_public_id = db.Column(db.String(200), nullable=True) # Cloudinary public_id for deletion
     in_stock       = db.Column(db.Boolean, default=True)
-    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at     = db.Column(db.DateTime, default=utc_now)
 
 class Appointment(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
@@ -122,7 +137,7 @@ class Appointment(db.Model):
     preferred_time = db.Column(db.String(50), nullable=False)
     notes          = db.Column(db.Text, nullable=True)
     status         = db.Column(db.String(20), default='pending')
-    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at     = db.Column(db.DateTime, default=utc_now)
 
 class Order(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
@@ -136,7 +151,7 @@ class Order(db.Model):
     status           = db.Column(db.String(20), default='pending_payment')
     payment_status   = db.Column(db.String(20), default='unpaid')
     payment_ref      = db.Column(db.String(100), nullable=True)
-    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at       = db.Column(db.DateTime, default=utc_now)
     product          = db.relationship('NailProduct', backref='orders')
 
 class OrderItem(db.Model):
@@ -156,7 +171,7 @@ class Notification(db.Model):
     is_read        = db.Column(db.Boolean, default=False)
     target         = db.Column(db.String(20), default='admin')
     customer_email = db.Column(db.String(120), nullable=True)
-    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at     = db.Column(db.DateTime, default=utc_now)
 
 class PasswordResetToken(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
@@ -164,7 +179,7 @@ class PasswordResetToken(db.Model):
     token      = db.Column(db.String(100), unique=True, nullable=False)
     used       = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
 class AppSetting(db.Model):
     id    = db.Column(db.Integer, primary_key=True)
@@ -840,18 +855,20 @@ def appointment():
     time_slots = get_setting('appt_time_slots', DEFAULT_TIME_SLOTS)
     blocked    = get_setting('appt_blocked_dates', [])
     if request.method == 'POST':
-        date = request.form['date']
-        if date in blocked:
+        date_raw = request.form['date'].strip()
+        if date_raw in blocked:
             flash('Sorry, that date is unavailable. Please choose another date.', 'error')
             return render_template('appointment.html', customer=customer,
-                                   services=services, time_slots=time_slots, blocked_dates=blocked)
+                                   services=services, time_slots=time_slots,
+                                   blocked_dates=blocked, min_date=today_ist_date())
+        date_label = fmt_ist_date(date_raw)
         a = Appointment(
             customer_name=request.form['name'].strip(),
             customer_email=request.form['email'].strip().lower(),
             customer_phone=request.form['phone'].strip(),
             service=request.form['service'],
-            preferred_date=date,
-            preferred_time=request.form['time'],
+            preferred_date=date_label,
+            preferred_time=request.form['time'].strip(),
             notes=request.form.get('notes', '').strip()
         )
         db.session.add(a); db.session.commit()
@@ -874,7 +891,8 @@ def appointment():
         flash('Appointment submitted! Check your email.', 'success')
         return redirect(url_for('appointment_confirmation', appt_id=a.id))
     return render_template('appointment.html', customer=customer,
-                           services=services, time_slots=time_slots, blocked_dates=blocked)
+                           services=services, time_slots=time_slots,
+                           blocked_dates=blocked, min_date=today_ist_date())
 
 @app.route('/appointment/confirmation/<int:appt_id>')
 def appointment_confirmation(appt_id):
@@ -1031,6 +1049,23 @@ def admin_email_order(oid):
     flash('Email sent!', 'success')
     return redirect(url_for('admin_orders'))
 
+@app.route('/admin/orders/delete/<int:oid>', methods=['POST'])
+@admin_required
+def admin_delete_order(oid):
+    try:
+        o = Order.query.get_or_404(oid)
+        Notification.query.filter(
+            Notification.message.like(f'%Order #{o.id}%')
+        ).delete(synchronize_session=False)
+        db.session.delete(o)
+        db.session.commit()
+        flash('Order deleted from admin history.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ORDER DELETE ERROR] {e}")
+        flash('Could not delete order right now.', 'error')
+    return redirect(url_for('admin_orders'))
+
 @app.route('/admin/appointments')
 @admin_required
 def admin_appointments():
@@ -1068,6 +1103,23 @@ def admin_email_appointment(aid):
         "Reminder 💅", f"<p>Hi <strong>{a.customer_name}</strong>,</p><p>{msg}</p>",
         url_for('customer_dashboard', _external=True), "View →"))
     flash('Email sent!', 'success')
+    return redirect(url_for('admin_appointments'))
+
+@app.route('/admin/appointments/delete/<int:aid>', methods=['POST'])
+@admin_required
+def admin_delete_appointment(aid):
+    try:
+        a = Appointment.query.get_or_404(aid)
+        Notification.query.filter(
+            Notification.message.like(f'%Appointment #{a.id}%')
+        ).delete(synchronize_session=False)
+        db.session.delete(a)
+        db.session.commit()
+        flash('Appointment deleted from admin history.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[APPOINTMENT DELETE ERROR] {e}")
+        flash('Could not delete appointment right now.', 'error')
     return redirect(url_for('admin_appointments'))
 
 @app.route('/admin/appointment-settings', methods=['GET', 'POST'])
@@ -1115,6 +1167,22 @@ def admin_customers():
     return render_template('admin/customers.html',
         customers=Customer.query.order_by(Customer.created_at.desc()).all())
 
+@app.route('/admin/customers/delete/<int:cid>', methods=['POST'])
+@admin_required
+def admin_delete_customer(cid):
+    try:
+        c = Customer.query.get_or_404(cid)
+        PasswordResetToken.query.filter_by(email=c.email).delete(synchronize_session=False)
+        Notification.query.filter_by(customer_email=c.email).delete(synchronize_session=False)
+        db.session.delete(c)
+        db.session.commit()
+        flash('Customer deleted from admin history.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[CUSTOMER DELETE ERROR] {e}")
+        flash('Could not delete customer right now.', 'error')
+    return redirect(url_for('admin_customers'))
+
 @app.route('/admin/notifications')
 @admin_required
 def admin_notifications():
@@ -1122,6 +1190,20 @@ def admin_notifications():
     for n in notifs: n.is_read = True
     db.session.commit()
     return render_template('admin/notifications.html', notifs=notifs)
+
+@app.route('/admin/notifications/delete/<int:nid>', methods=['POST'])
+@admin_required
+def admin_delete_notification(nid):
+    try:
+        n = Notification.query.get_or_404(nid)
+        db.session.delete(n)
+        db.session.commit()
+        flash('Notification deleted.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[NOTIFICATION DELETE ERROR] {e}")
+        flash('Could not delete notification right now.', 'error')
+    return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/notifications/count')
 @admin_required
